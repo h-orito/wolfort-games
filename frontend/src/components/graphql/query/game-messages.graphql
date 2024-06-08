@@ -1,0 +1,47 @@
+query GameMessages($gameId: ID!, $query: MessagesQuery!) {
+  messages(gameId: $gameId, query: $query) {
+    list {
+      id
+      content {
+        type
+        text
+        number
+        isConvertDisabled
+      }
+      time {
+        sendAt
+        sendUnixTimeMilli
+      }
+      sender {
+        participantId
+        name
+        entryNumber
+        icon {
+          url
+          width
+          height
+        }
+      }
+      receiver {
+        participantId
+        name
+        entryNumber
+      }
+      replyTo {
+        messageId
+        participantId
+      }
+      reactions {
+        replyCount
+        favoriteCount
+        favoriteParticipantIds
+      }
+    }
+    allPageCount
+    hasPrePage
+    hasNextPage
+    currentPageNumber
+    isDesc
+    latestUnixTimeMilli
+  }
+}

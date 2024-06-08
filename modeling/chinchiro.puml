@@ -1,0 +1,84 @@
+@startuml chinchiro
+'https://plantuml.com/class-diagram
+
+entity Players {
+    * id: int unsigned <<generated>>
+    --
+}
+
+' Room
+
+entity Rooms {
+    * id: int unsigned <<generated>>
+    --
+}
+
+entity RoomParticipants {
+    * id: int unsigned <<generated>>
+    --
+    * player_id: int unsigned <<foreign key>>
+    * room_id: int unsigned <<foreign key>>
+}
+
+RoomParticipants }o--|| Players
+RoomParticipants }o--|| Rooms
+
+' Game
+
+entity Games {
+    * id: int unsigned <<generated>>
+    --
+    * room_id: int unsigned <<foreign key>>
+}
+
+entity GameParticipants {
+    * id: int unsigned <<generated>>
+    --
+    * room_participant_id: int unsigned <<foreign key>>
+    * game_id: int unsigned <<foreign key>>
+    * balance: int
+    * order: int unsigned
+}
+
+GameParticipants }o--|| RoomParticipants
+GameParticipants }o--|| Games
+
+entity GameTurns {
+    * id: int unsigned <<generated>>
+    --
+    * game_id: int unsigned <<foreign key>>
+    * dealer_participant_id: int unsigned <<foreign key>>
+    * turn_number: int unsigned
+}
+
+GameTurns }o--|| Games
+GameTurns }o--|| GameParticipants
+
+entity GameTrunParticipantResults {
+    * id: int unsigned <<generated>>
+    --
+    * turn_id: int unsigned <<foreign key>>
+    * participant_id: int unsigned <<foreign key>>
+    * bet: int
+    dice1: int unsigned
+    dice2: int unsigned
+    dice3: int unsigned
+    combination_code: varchar
+    wininngs: int
+}
+
+GameTrunParticipantResults }o--|| GameTurns
+GameTrunParticipantResults }o--|| GameParticipants
+
+' Message
+
+entity Messages {
+    * id: int unsigned <<generated>>
+    --
+    * room_participant_id: int unsigned <<foreign key>>
+    * room_id: int unsigned <<foreign key>>
+    * message: varchar
+}
+
+
+@enduml

@@ -1,0 +1,436 @@
+# GraphQL schema example
+#
+# https://gqlgen.com/getting-started/
+
+####################################################
+
+directive @isAuthenticated on FIELD_DEFINITION
+
+# RFC3339 e.g. 2019-11-19T18:00:00+09:00
+scalar DateTime
+
+scalar Long
+
+scalar Upload
+
+####################################################
+
+type Player {
+  id: ID!
+  name: String!
+  authorityCodes: [String!]!
+}
+
+####################################################
+
+type ChinchiroRoom {
+  id: ID!
+  name: String!
+  status: ChinchiroRoomStatus!
+  roomMasters: [ChinchiroRoomMaster!]!
+  participants: [ChinchiroRoomParticipant!]!
+  games: [ChinchiroGame!]!
+  settings: ChinchiroRoomSettings!
+}
+
+type SimpleChinchiroRoom {
+  id: ID!
+  name: String!
+  status: ChinchiroRoomStatus!
+  participantCounts: Int!
+  settings: ChinchiroRoomSettings!
+}
+
+enum ChinchiroRoomStatus {
+  Opened
+  Finished
+}
+
+type ChinchiroRoomMaster {
+  id: ID!
+  player: Player!
+}
+
+type ChinchiroRoomParticipant {
+  id: ID!
+  name: String!
+  player: Player!
+  isGone: Boolean!
+}
+
+type ChinchiroRoomSettings {
+  dummy: String!
+}
+
+type ChinchiroGame {
+  id: ID!
+  status: ChinchiroGameStatus!
+  participants: [ChinchiroGameParticipant!]!
+  turns: [ChinchiroGameTurn!]!
+}
+
+enum ChinchiroGameStatus {
+  Progress
+  Finished
+}
+
+type ChinchiroGameParticipant {
+  id: ID!
+  roomParticipant: ChinchiroRoomParticipant!
+  balance: Int!
+  turnOrder: Int!
+}
+
+type ChinchiroGameTurn {
+  id: ID!
+  dealer: ChinchiroGameParticipant!
+  status: ChinchiroGameTurnStatus!
+  turnNumber: Int!
+  rolls: [ChinchiroGameTurnParticipantRoll!]!
+  results: [ChinchiroGameTurnParticipantResult!]!
+}
+
+enum ChinchiroGameTurnStatus {
+  Betting
+  Rolling
+  Finished
+}
+
+type ChinchiroGameTurnParticipantRoll {
+  id: ID!
+  turn: ChinchiroGameTurn!
+  participant: ChinchiroGameParticipant!
+  rollNumber: Int!
+  dice1: Int!
+  dice2: Int!
+  dice3: Int!
+}
+
+type ChinchiroGameTurnParticipantResult {
+  id: ID!
+  turn: ChinchiroGameTurn!
+  participant: ChinchiroGameParticipant!
+  dice1: Int!
+  dice2: Int!
+  dice3: Int!
+  combination: ChinchiroCombination!
+  winnings: Int!
+}
+
+enum ChinchiroCombination {
+  Hifumi
+  Menashi
+  Ichinome
+  Ninome
+  Sannome
+  Yonnome
+  Gonome
+  Rokunome
+  Pinzoro
+  Nizoro
+  Sanzoro
+  Yonzoro
+  Gozoro
+  Rokuzoro
+  Shigoro
+}
+
+####################################################
+
+interface Pageable {
+  allPageCount: Int!
+  hasPrePage: Boolean!
+  hasNextPage: Boolean!
+  currentPageNumber: Int
+  isDesc: Boolean!
+}
+
+####################################################
+
+type Query {
+  players(query: PlayersQuery!): [Player!]!
+  player(id: ID!): Player
+  myPlayer: Player
+
+  chinchiroRooms(query: ChinchiroRoomsQuery!): [SimpleChinchiroRoom!]!
+  chinchiroRoom(roomId: ID!): ChinchiroRoom
+  myChinchiroRoomParticipant(roomId: ID!): ChinchiroRoomParticipant
+  chinchiroGames(query: ChinchiroGamesQuery!): [ChinchiroGame!]!
+  chinchiroGame(gameId: ID!): ChinchiroGame
+  myChinchiroGameParticipant(gameId: ID!): ChinchiroGameParticipant
+  chinchiroGameTurns(query: ChinchiroGameTurnsQuery!): [ChinchiroGameTurn!]!
+  chinchiroGameTurn(turnId: ID!): ChinchiroGameTurn
+  chinchiroGameTurnRolls(
+    query: ChinchiroGameTurnRollsQuery
+  ): [ChinchiroGameTurnParticipantRoll!]!
+  chinchiroGameTurnParticipantResults(
+    query: ChinchiroGameTurnParticipantResultsQuery!
+  ): [ChinchiroGameTurnParticipantResult!]!
+}
+
+input PageableQuery {
+  pageSize: Int!
+  pageNumber: Int!
+  isDesc: Boolean!
+  isLatest: Boolean!
+}
+
+input PlayersQuery {
+  ids: [ID!]
+  name: String
+  paging: PageableQuery
+}
+
+input ChinchiroRoomsQuery {
+  ids: [ID!]
+  name: String
+  statuses: [ChinchiroRoomStatus!]
+  paging: PageableQuery
+}
+
+input ChinchiroGamesQuery {
+  ids: [ID!]
+  roomId: ID
+  name: String
+  statuses: [ChinchiroGameStatus!]
+  paging: PageableQuery
+}
+
+input ChinchiroGameTurnsQuery {
+  ids: [ID!]
+  gameId: ID
+  statuses: [ChinchiroGameTurnStatus!]
+  paging: PageableQuery
+}
+
+input ChinchiroGameTurnRollsQuery {
+  ids: [ID!]
+  turnId: ID
+  paging: PageableQuery
+}
+
+input ChinchiroGameTurnParticipantResultsQuery {
+  ids: [ID!]
+  turnId: ID
+  paging: PageableQuery
+}
+
+####################################################
+
+type Mutation {
+  ## chinchiro
+  # room
+  registerChinchiroRoom(
+    input: NewChinchiroRoom!
+  ): RegisterChinchiroRoomPayload! @isAuthenticated
+  registerChinchiroRoomMaster(
+    input: NewChinchiroRoomMaster!
+  ): RegisterChinchiroRoomMasterPayload! @isAuthenticated
+  deleteChinchiroRoomMaster(
+    input: DeleteChinchiroRoomMaster!
+  ): DeleteChinchiroRoomMasterPayload! @isAuthenticated
+  updateChinchiroRoomStatus(
+    input: UpdateChinchiroRoomStatus!
+  ): UpdateChinchiroRoomStatusPayload! @isAuthenticated
+  updateChinchiroRoomSettings(
+    input: UpdateChinchiroRoomSettings!
+  ): UpdateChinchiroRoomSettingsPayload! @isAuthenticated
+
+  # room participant
+  registerChinchiroRoomParticipant(
+    input: NewChinchiroRoomParticipant!
+  ): RegisterChinchiroRoomParticipantPayload! @isAuthenticated
+  updateChinchiroRoomParticipant(
+    input: UpdateChinchiroRoomParticipant!
+  ): UpdateChinchiroRoomParticipantPayload! @isAuthenticated
+  leaveChinchiroRoom(input: LeaveChinchiroRoom!): LeaveChinchiroRoomPayload!
+    @isAuthenticated
+  deleteChinchiroRoomParticipant(
+    input: DeleteChinchiroRoomParticipant!
+  ): DeleteChinchiroRoomParticipantPayload! @isAuthenticated
+
+  # game
+  registerChinchiroGame(
+    input: NewChinchiroGame!
+  ): RegisterChinchiroGamePayload! @isAuthenticated
+  registerChinchiroGameParticipant(
+    input: NewChinchiroGameParticipant!
+  ): RegisterChinchiroGameParticipantPayload! @isAuthenticated
+  deleteChinchiroGameParticipant(
+    input: DeleteChinchiroGameParticipant!
+  ): DeleteChinchiroGameParticipantPayload! @isAuthenticated
+
+  # game turn
+  registerChinchiroGameTurn(
+    input: NewChinchiroGameTurn!
+  ): RegisterChinchiroGameTurnPayload! @isAuthenticated
+  updateChinchiroGameTurnStatus(
+    input: UpdateChinchiroGameTurnStatus!
+  ): UpdateChinchiroGameTurnStatusPayload! @isAuthenticated
+
+  # game turn participant
+  betChinchiroGameTurnParticipant(
+    input: BetChinchiroGameTurnParticipant!
+  ): BetChinchiroGameTurnParticipantPayload! @isAuthenticated
+  rollChinchiroGameTurnParticipant(
+    input: RollChinchiroGameTurnParticipant!
+  ): RollChinchiroGameTurnParticipantPayload! @isAuthenticated
+}
+
+## chinchiro
+
+# room
+
+input NewChinchiroRoom {
+  name: String!
+}
+
+type RegisterChinchiroRoomPayload {
+  chinchiroRoom: ChinchiroRoom!
+}
+
+input NewChinchiroRoomMaster {
+  roomId: ID!
+  playerId: ID!
+}
+
+type RegisterChinchiroRoomMasterPayload {
+  chinchiroRoomMaster: ChinchiroRoomMaster!
+}
+
+input DeleteChinchiroRoomMaster {
+  roomID: ID!
+  masterId: ID!
+}
+
+type DeleteChinchiroRoomMasterPayload {
+  ok: Boolean!
+}
+
+input UpdateChinchiroRoomStatus {
+  roomId: ID!
+  status: ChinchiroRoomStatus!
+}
+
+type UpdateChinchiroRoomStatusPayload {
+  ok: Boolean!
+}
+
+input UpdateChinchiroRoomSettings {
+  roomId: ID!
+  dummy: String!
+}
+
+type UpdateChinchiroRoomSettingsPayload {
+  ok: Boolean!
+}
+
+# room participant
+
+input NewChinchiroRoomParticipant {
+  roomId: ID!
+  name: String!
+  password: String
+}
+
+type RegisterChinchiroRoomParticipantPayload {
+  chinchiroRoomParticipant: ChinchiroRoomParticipant!
+}
+
+input UpdateChinchiroRoomParticipant {
+  roomId: ID!
+  participantId: ID!
+  name: String!
+}
+
+type UpdateChinchiroRoomParticipantPayload {
+  ok: Boolean!
+}
+
+input LeaveChinchiroRoom {
+  roomId: ID!
+}
+
+type LeaveChinchiroRoomPayload {
+  ok: Boolean!
+}
+
+input DeleteChinchiroRoomParticipant {
+  roomId: ID!
+  participantId: ID!
+}
+
+type DeleteChinchiroRoomParticipantPayload {
+  ok: Boolean!
+}
+
+# game
+
+input NewChinchiroGame {
+  roomId: ID!
+}
+
+type RegisterChinchiroGamePayload {
+  chinchiroGame: ChinchiroGame!
+}
+
+input NewChinchiroGameParticipant {
+  gameId: ID!
+}
+
+type RegisterChinchiroGameParticipantPayload {
+  chinchiroGameParticipant: ChinchiroGameParticipant!
+}
+
+type UpdateChinchiroGameParticipantPayload {
+  ok: Boolean!
+}
+
+input DeleteChinchiroGameParticipant {
+  gameId: ID!
+  participantId: ID!
+}
+
+type DeleteChinchiroGameParticipantPayload {
+  ok: Boolean!
+}
+
+# game turn
+
+input NewChinchiroGameTurn {
+  gameId: ID!
+}
+
+type RegisterChinchiroGameTurnPayload {
+  chinchiroGameTurn: ChinchiroGameTurn!
+}
+
+input UpdateChinchiroGameTurnStatus {
+  turnId: ID!
+  status: ChinchiroGameTurnStatus!
+}
+
+type UpdateChinchiroGameTurnStatusPayload {
+  ok: Boolean!
+}
+
+# game turn participant
+
+input BetChinchiroGameTurnParticipant {
+  turnId: ID!
+  betAmount: Int!
+}
+
+type BetChinchiroGameTurnParticipantPayload {
+  ok: Boolean!
+}
+
+input RollChinchiroGameTurnParticipant {
+  turnId: ID!
+}
+
+type RollChinchiroGameTurnParticipantPayload {
+  ok: Boolean!
+}
+
+####################################################

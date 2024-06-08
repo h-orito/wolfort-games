@@ -1,0 +1,17 @@
+version: "3"
+
+services:
+  mysql:
+    container_name: games-mysql
+    build:
+      context: ./mysql
+    ports:
+      - 3307:3306
+    volumes:
+      - games-mysql-db-data:/var/lib/mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: password
+      TZ: Asia/Tokyo
+
+volumes:
+  games-mysql-db-data:

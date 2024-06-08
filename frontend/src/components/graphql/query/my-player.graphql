@@ -1,0 +1,10 @@
+query MyPlayer {
+  myPlayer {
+    id
+    name
+    profile {
+      introduction
+    }
+    authorityCodes
+  }
+}
