@@ -1,9 +1,9 @@
 package graphql
 
 import (
-	"chat-role-play/domain/model"
-	"chat-role-play/middleware/graph/gqlmodel"
-	"chat-role-play/util/array"
+	"wolfort-games/domain/model"
+	"wolfort-games/middleware/graph/gqlmodel"
+	"wolfort-games/util/array"
 )
 
 func MapToChinchiroRoom(

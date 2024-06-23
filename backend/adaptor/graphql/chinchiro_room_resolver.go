@@ -1,12 +1,12 @@
 package graphql
 
 import (
-	"chat-role-play/adaptor/auth"
-	"chat-role-play/domain/model"
-	"chat-role-play/middleware/graph/gqlmodel"
-	"chat-role-play/util/array"
 	"context"
 	"fmt"
+	"wolfort-games/adaptor/auth"
+	"wolfort-games/domain/model"
+	"wolfort-games/middleware/graph/gqlmodel"
+	"wolfort-games/util/array"
 
 	"github.com/graph-gophers/dataloader"
 )
@@ -218,7 +218,21 @@ func (r *mutationResolver) deleteChinchiroRoomParticipant(ctx context.Context, i
 
 // LeaveChinchiroRoom is the resolver for the leaveChinchiroRoom field.
 func (r *mutationResolver) leaveChinchiroRoom(ctx context.Context, input gqlmodel.LeaveChinchiroRoom) (*gqlmodel.LeaveChinchiroRoomPayload, error) {
-	panic(fmt.Errorf("not implemented: LeaveChinchiroRoom - leaveChinchiroRoom"))
+	user := auth.GetUser(ctx)
+	if user == nil {
+		return nil, fmt.Errorf("user not found")
+	}
+	roomID, err := idToUint32(input.RoomID)
+	if err != nil {
+		return nil, err
+	}
+	err = r.chinchiroRoomUsecase.LeaveChinchiroRoom(ctx, *user, roomID)
+	if err != nil {
+		return nil, err
+	}
+	return &gqlmodel.LeaveChinchiroRoomPayload{
+		Ok: true,
+	}, nil
 }
 
 // ChinchiroRooms is the resolver for the chinchiroRooms field.
@@ -249,8 +263,7 @@ func (r *queryResolver) chinchiroRooms(ctx context.Context, query gqlmodel.Chinc
 	}), nil
 }
 
-// ChinchiroRoom is the resolver for the chinchiroRoom field.
-func (r *queryResolver) chinchiroRoom(ctx context.Context, roomID string) (*gqlmodel.ChinchiroRoom, error) {
+func (r *queryResolver) chinchiroRoom(_ context.Context, roomID string) (*gqlmodel.ChinchiroRoom, error) {
 	rID, err := idToUint32(roomID)
 	if err != nil {
 		return nil, err
@@ -262,7 +275,6 @@ func (r *queryResolver) chinchiroRoom(ctx context.Context, roomID string) (*gqlm
 	return MapToChinchiroRoom(room), nil
 }
 
-// MyChinchiroRoomParticipant is the resolver for the myChinchiroRoomParticipant field.
 func (r *queryResolver) myChinchiroRoomParticipant(ctx context.Context, roomID string) (*gqlmodel.ChinchiroRoomParticipant, error) {
 	user := auth.GetUser(ctx)
 	if user == nil {

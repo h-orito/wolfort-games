@@ -23,11 +23,11 @@ jobs:
       - name: build
         run: |
           cd backend
-          docker build -t ghcr.io/h-orito/chat-role-play-backend .
+          docker build -t ghcr.io/h-orito/wolfort-games-backend .
       - name: deploy
         run: |
           docker login ghcr.io -u h-orito -p ${{ secrets.PACKAGE_PAT }}
-          docker push ghcr.io/h-orito/chat-role-play-backend
+          docker push ghcr.io/h-orito/wolfort-games-backend
       - name: release
         run: |
-          kubectl delete pod -l app=chat-role-play-backend
+          kubectl delete pod -l app=wolfort-games-backend

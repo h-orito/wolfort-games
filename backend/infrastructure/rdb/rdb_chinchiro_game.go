@@ -1,8 +1,9 @@
 package db
 
 import (
-	model "chat-role-play/domain/model"
 	"time"
+	model "wolfort-games/domain/model"
+	"wolfort-games/util/array"
 )
 
 type ChinchiroGame struct {
@@ -18,10 +19,11 @@ func (r ChinchiroGame) ToModel(
 	turns model.ChinchiroGameTurns,
 ) *model.ChinchiroGame {
 	return &model.ChinchiroGame{
-		ID:           r.ID,
-		Status:       *model.ChinchiroGameStatusValueOf(r.GameStatusCode),
-		Participants: participants,
-		Turns:        turns,
+		ID:             r.ID,
+		RoomID:         r.RoomID,
+		Status:         *model.ChinchiroGameStatusValueOf(r.GameStatusCode),
+		ParticipantIDs: array.Map(participants.List, func(p model.ChinchiroGameParticipant) uint32 { return p.ID }),
+		TurnIDs:        array.Map(turns.List, func(t model.ChinchiroGameTurn) uint32 { return t.ID }),
 	}
 }
 
@@ -45,26 +47,29 @@ func (p ChinchiroGameParticipant) ToModel() *model.ChinchiroGameParticipant {
 }
 
 type ChinchiroGameTurn struct {
-	ID                 uint32
-	GameID             uint32
-	DealerPartcipantID uint32
-	TurnStatusCode     string
-	TurnNumber         int
-	CreatedAt          time.Time
-	UpdatedAt          time.Time
+	ID                      uint32
+	GameID                  uint32
+	DealerParticipantID     uint32
+	NextRollerParticipantID *uint32
+	TurnStatusCode          string
+	TurnNumber              int
+	CreatedAt               time.Time
+	UpdatedAt               time.Time
 }
 
 func (t ChinchiroGameTurn) ToModel(
-	rollIDs []uint32,
-	resultIDs []uint32,
+	rolls []model.ChinchiroGameTurnRoll,
+	results []model.ChinchiroGameTurnResult,
 ) *model.ChinchiroGameTurn {
 	return &model.ChinchiroGameTurn{
-		ID:         t.ID,
-		DealerID:   t.DealerPartcipantID,
-		Status:     *model.ChinchiroGameTurnStatusValueOf(t.TurnStatusCode),
-		TurnNumber: t.TurnNumber,
-		RollIDs:    rollIDs,
-		ResultIDs:  resultIDs,
+		ID:           t.ID,
+		GameID:       t.GameID,
+		DealerID:     t.DealerParticipantID,
+		NextRollerID: t.NextRollerParticipantID,
+		Status:       *model.ChinchiroGameTurnStatusValueOf(t.TurnStatusCode),
+		TurnNumber:   t.TurnNumber,
+		RollIDs:      array.Map(rolls, func(r model.ChinchiroGameTurnRoll) uint32 { return r.ID }),
+		ResultIDs:    array.Map(results, func(r model.ChinchiroGameTurnResult) uint32 { return r.ID }),
 	}
 }
 
@@ -111,16 +116,17 @@ type ChinchiroGameTurnParticipantResult struct {
 }
 
 func (r ChinchiroGameTurnParticipantResult) ToModel() *model.ChinchiroGameTurnResult {
+	diceRoll := model.NewChinchiroDiceRoll(
+		r.Dice1,
+		r.Dice2,
+		r.Dice3,
+	)
 	return &model.ChinchiroGameTurnResult{
 		ID:            r.ID,
 		TurnID:        r.TurnID,
 		ParticipantID: r.ParticipantID,
 		BetAmount:     r.BetAmount,
-		DiceRoll: model.NewChinchiroDiceRoll(
-			r.Dice1,
-			r.Dice2,
-			r.Dice3,
-		),
-		Winnings: r.Winnings,
+		DiceRoll:      &diceRoll,
+		Winnings:      &r.Winnings,
 	}
 }

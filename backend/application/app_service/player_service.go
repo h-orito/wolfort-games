@@ -1,8 +1,8 @@
 package app_service
 
 import (
-	"chat-role-play/domain/model"
 	"context"
+	"wolfort-games/domain/model"
 )
 
 type PlayerService interface {
@@ -49,7 +49,6 @@ func (s *playerService) Save(ctx context.Context, player model.Player) (saved *m
 	return s.playerRepository.Save(ctx, &player)
 }
 
-// FindAuthorities implements PlayerService.
 func (s *playerService) FindAuthorities(ID uint32) (authorities []model.PlayerAuthority, err error) {
 	return s.userRepository.FindPlayerAuthorities(ID)
 }

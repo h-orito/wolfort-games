@@ -1,15 +1,45 @@
 package graphql
 
 import (
-	"chat-role-play/adaptor/auth"
-	"chat-role-play/domain/model"
-	"chat-role-play/middleware/graph/gqlmodel"
-	"chat-role-play/util/array"
 	"context"
 	"fmt"
+	"wolfort-games/adaptor/auth"
+	"wolfort-games/domain/model"
+	"wolfort-games/middleware/graph/gqlmodel"
+	"wolfort-games/util/array"
 
 	"github.com/graph-gophers/dataloader"
 )
+
+func (r *chinchiroGameResolver) participants(ctx context.Context, obj *gqlmodel.ChinchiroGame) ([]*gqlmodel.ChinchiroGameParticipant, error) {
+	if obj.ParticipantIDs == nil || len(obj.ParticipantIDs) == 0 {
+		return nil, nil
+	}
+	thunk := r.loaders.ChinchiroGameParticipantLoader.LoadMany(ctx, dataloader.NewKeysFromStrings(obj.ParticipantIDs))
+	c, errs := thunk()
+	if errs != nil || len(errs) > 0 {
+		return nil, errs[0]
+	}
+	return array.Map(c, func(c interface{}) *gqlmodel.ChinchiroGameParticipant {
+		p := c.(*model.ChinchiroGameParticipant)
+		return MapToChinchiroGameParticipant(p)
+	}), nil
+}
+
+func (r *chinchiroGameResolver) turns(ctx context.Context, obj *gqlmodel.ChinchiroGame) ([]*gqlmodel.ChinchiroGameTurn, error) {
+	if obj.TurnIDs == nil || len(obj.TurnIDs) == 0 {
+		return nil, nil
+	}
+	thunk := r.loaders.ChinchiroGameTurnLoader.LoadMany(ctx, dataloader.NewKeysFromStrings(obj.TurnIDs))
+	c, errs := thunk()
+	if errs != nil || len(errs) > 0 {
+		return nil, errs[0]
+	}
+	return array.Map(c, func(c interface{}) *gqlmodel.ChinchiroGameTurn {
+		t := c.(*model.ChinchiroGameTurn)
+		return MapToChinchiroGameTurn(t)
+	}), nil
+}
 
 func (r *chinchiroGameParticipantResolver) roomParticipant(ctx context.Context, obj *gqlmodel.ChinchiroGameParticipant) (*gqlmodel.ChinchiroRoomParticipant, error) {
 	thunk := r.loaders.ChinchiroRoomParticipantLoader.Load(ctx, dataloader.StringKey(obj.RoomParticipantID))
@@ -23,6 +53,16 @@ func (r *chinchiroGameParticipantResolver) roomParticipant(ctx context.Context, 
 
 func (r *chinchiroGameTurnResolver) dealer(ctx context.Context, obj *gqlmodel.ChinchiroGameTurn) (*gqlmodel.ChinchiroGameParticipant, error) {
 	thunk := r.loaders.ChinchiroGameParticipantLoader.Load(ctx, dataloader.StringKey(obj.DealerID))
+	p, err := thunk()
+	if err != nil {
+		return nil, err
+	}
+	gameParticipant := p.(*model.ChinchiroGameParticipant)
+	return MapToChinchiroGameParticipant(gameParticipant), nil
+}
+
+func (r *chinchiroGameTurnResolver) nextRoller(ctx context.Context, obj *gqlmodel.ChinchiroGameTurn) (*gqlmodel.ChinchiroGameParticipant, error) {
+	thunk := r.loaders.ChinchiroGameParticipantLoader.Load(ctx, dataloader.StringKey(*obj.NextRollerID))
 	p, err := thunk()
 	if err != nil {
 		return nil, err
@@ -119,60 +159,6 @@ func (r *mutationResolver) registerChinchiroGame(ctx context.Context, input gqlm
 	}, nil
 }
 
-func (r *mutationResolver) registerChinchiroGameParticipant(ctx context.Context, input gqlmodel.NewChinchiroGameParticipant) (*gqlmodel.RegisterChinchiroGameParticipantPayload, error) {
-	user := auth.GetUser(ctx)
-	if user == nil {
-		return nil, fmt.Errorf("user not found")
-	}
-	gameID, err := idToUint32(input.GameID)
-	if err != nil {
-		return nil, err
-	}
-	participant, err := r.chinchiroGameUsecase.RegisterChinchiroGameParticipant(ctx, *user, gameID, model.ChinchiroGameParticipant{})
-	if err != nil {
-		return nil, err
-	}
-	return &gqlmodel.RegisterChinchiroGameParticipantPayload{
-		ChinchiroGameParticipant: MapToChinchiroGameParticipant(participant),
-	}, nil
-}
-
-func (r *mutationResolver) deleteChinchiroGameParticipant(ctx context.Context, input gqlmodel.DeleteChinchiroGameParticipant) (*gqlmodel.DeleteChinchiroGameParticipantPayload, error) {
-	user := auth.GetUser(ctx)
-	if user == nil {
-		return nil, fmt.Errorf("user not found")
-	}
-	participantID, err := idToUint32(input.ParticipantID)
-	if err != nil {
-		return nil, err
-	}
-	err = r.chinchiroGameUsecase.DeleteChinchiroGameParticipant(ctx, *user, participantID)
-	if err != nil {
-		return nil, err
-	}
-	return &gqlmodel.DeleteChinchiroGameParticipantPayload{
-		Ok: true,
-	}, nil
-}
-
-func (r *mutationResolver) registerChinchiroGameTurn(ctx context.Context, input gqlmodel.NewChinchiroGameTurn) (*gqlmodel.RegisterChinchiroGameTurnPayload, error) {
-	user := auth.GetUser(ctx)
-	if user == nil {
-		return nil, fmt.Errorf("user not found")
-	}
-	gameID, err := idToUint32(input.GameID)
-	if err != nil {
-		return nil, err
-	}
-	turn, err := r.chinchiroGameUsecase.RegisterChinchiroGameTurn(ctx, *user, gameID)
-	if err != nil {
-		return nil, err
-	}
-	return &gqlmodel.RegisterChinchiroGameTurnPayload{
-		ChinchiroGameTurn: MapToChinchiroGameTurn(turn),
-	}, nil
-}
-
 func (r *mutationResolver) updateChinchiroGameTurnStatus(ctx context.Context, input gqlmodel.UpdateChinchiroGameTurnStatus) (*gqlmodel.UpdateChinchiroGameTurnStatusPayload, error) {
 	user := auth.GetUser(ctx)
 	if user == nil {
@@ -227,8 +213,7 @@ func (r *mutationResolver) rollChinchiroGameTurnParticipant(ctx context.Context,
 	}, nil
 }
 
-// ChinchiroGames is the resolver for the chinchiroGames field.
-func (r *queryResolver) chinchiroGames(ctx context.Context, query gqlmodel.ChinchiroGamesQuery) ([]*gqlmodel.ChinchiroGame, error) {
+func (r *queryResolver) chinchiroGames(_ context.Context, query gqlmodel.ChinchiroGamesQuery) ([]*gqlmodel.ChinchiroGame, error) {
 	queryIDs, err := idsToUint32s(query.Ids)
 	if err != nil {
 		return nil, err
@@ -255,13 +240,12 @@ func (r *queryResolver) chinchiroGames(ctx context.Context, query gqlmodel.Chinc
 	if err != nil {
 		return nil, err
 	}
-	return array.Map(games, func(g model.ChinchiroGame) *gqlmodel.ChinchiroGame {
+	return array.Map(games.List, func(g model.ChinchiroGame) *gqlmodel.ChinchiroGame {
 		return MapToChinchiroGame(&g)
 	}), nil
 }
 
-// ChinchiroGame is the resolver for the chinchiroGame field.
-func (r *queryResolver) chinchiroGame(ctx context.Context, gameID string) (*gqlmodel.ChinchiroGame, error) {
+func (r *queryResolver) chinchiroGame(_ context.Context, gameID string) (*gqlmodel.ChinchiroGame, error) {
 	gid, err := idToUint32(gameID)
 	if err != nil {
 		return nil, err
@@ -273,7 +257,6 @@ func (r *queryResolver) chinchiroGame(ctx context.Context, gameID string) (*gqlm
 	return MapToChinchiroGame(game), nil
 }
 
-// MyChinchiroGameParticipant is the resolver for the myChinchiroGameParticipant field.
 func (r *queryResolver) myChinchiroGameParticipant(ctx context.Context, gameID string) (*gqlmodel.ChinchiroGameParticipant, error) {
 	user := auth.GetUser(ctx)
 	if user == nil {
@@ -290,8 +273,7 @@ func (r *queryResolver) myChinchiroGameParticipant(ctx context.Context, gameID s
 	return MapToChinchiroGameParticipant(participant), nil
 }
 
-// ChinchiroGameTurns is the resolver for the chinchiroGameTurns field.
-func (r *queryResolver) chinchiroGameTurns(ctx context.Context, query gqlmodel.ChinchiroGameTurnsQuery) ([]*gqlmodel.ChinchiroGameTurn, error) {
+func (r *queryResolver) chinchiroGameTurns(_ context.Context, query gqlmodel.ChinchiroGameTurnsQuery) ([]*gqlmodel.ChinchiroGameTurn, error) {
 	queryIDs, err := idsToUint32s(query.Ids)
 	if err != nil {
 		return nil, err
@@ -322,8 +304,7 @@ func (r *queryResolver) chinchiroGameTurns(ctx context.Context, query gqlmodel.C
 	}), nil
 }
 
-// ChinchiroGameTurn is the resolver for the chinchiroGameTurn field.
-func (r *queryResolver) chinchiroGameTurn(ctx context.Context, turnID string) (*gqlmodel.ChinchiroGameTurn, error) {
+func (r *queryResolver) chinchiroGameTurn(_ context.Context, turnID string) (*gqlmodel.ChinchiroGameTurn, error) {
 	tid, err := idToUint32(turnID)
 	if err != nil {
 		return nil, err
@@ -335,8 +316,7 @@ func (r *queryResolver) chinchiroGameTurn(ctx context.Context, turnID string) (*
 	return MapToChinchiroGameTurn(turn), nil
 }
 
-// ChinchiroGameTurnRolls is the resolver for the chinchiroGameTurnRolls field.
-func (r *queryResolver) chinchiroGameTurnRolls(ctx context.Context, query *gqlmodel.ChinchiroGameTurnRollsQuery) ([]*gqlmodel.ChinchiroGameTurnParticipantRoll, error) {
+func (r *queryResolver) chinchiroGameTurnRolls(_ context.Context, query *gqlmodel.ChinchiroGameTurnRollsQuery) ([]*gqlmodel.ChinchiroGameTurnParticipantRoll, error) {
 	queryIDs, err := idsToUint32s(query.Ids)
 	if err != nil {
 		return nil, err
@@ -358,8 +338,7 @@ func (r *queryResolver) chinchiroGameTurnRolls(ctx context.Context, query *gqlmo
 	}), nil
 }
 
-// ChinchiroGameTurnParticipantResults is the resolver for the chinchiroGameTurnParticipantResults field.
-func (r *queryResolver) chinchiroGameTurnParticipantResults(ctx context.Context, query gqlmodel.ChinchiroGameTurnParticipantResultsQuery) ([]*gqlmodel.ChinchiroGameTurnParticipantResult, error) {
+func (r *queryResolver) chinchiroGameTurnParticipantResults(_ context.Context, query gqlmodel.ChinchiroGameTurnParticipantResultsQuery) ([]*gqlmodel.ChinchiroGameTurnParticipantResult, error) {
 	queryIDs, err := idsToUint32s(query.Ids)
 	if err != nil {
 		return nil, err

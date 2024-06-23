@@ -1,5 +1,10 @@
 package array
 
+import (
+	"math/rand"
+	"time"
+)
+
 func ForEach[T any](array []T, f func(T)) {
 	for _, value := range array {
 		f(value)
@@ -151,5 +156,15 @@ func Reverse[T any](array []T) []T {
 		a[i], a[opp] = a[opp], a[i]
 	}
 
+	return a
+}
+
+func Shuffle[T any](array []T) []T {
+	a := make([]T, len(array))
+	copy(a, array)
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+	r.Shuffle(len(a), func(i, j int) {
+		a[i], a[j] = a[j], a[i]
+	})
 	return a
 }

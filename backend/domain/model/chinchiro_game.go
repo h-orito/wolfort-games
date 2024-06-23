@@ -1,8 +1,8 @@
 package model
 
 import (
-	"chat-role-play/util/array"
 	"context"
+	"wolfort-games/util/array"
 )
 
 type ChinchiroGames struct {
@@ -11,10 +11,11 @@ type ChinchiroGames struct {
 }
 
 type ChinchiroGame struct {
-	ID           uint32
-	Status       ChinchiroGameStatus
-	Participants ChinchiroGameParticipants
-	Turns        ChinchiroGameTurns
+	ID             uint32
+	RoomID         uint32
+	Status         ChinchiroGameStatus
+	ParticipantIDs []uint32
+	TurnIDs        []uint32
 }
 
 type ChinchiroGameStatus int
@@ -62,9 +63,9 @@ type ChinchiroGameParticipants struct {
 }
 
 type ChinchiroGameParticipantsQuery struct {
-	IDs    *[]uint32
-	GameID *uint32
-	RoomID *uint32
+	IDs     *[]uint32
+	GameID  *uint32
+	GameIDs *[]uint32
 }
 
 type ChinchiroGameParticipant struct {
@@ -73,6 +74,8 @@ type ChinchiroGameParticipant struct {
 	Balance           int
 	TurnOrder         int
 }
+
+var ChinchiroGameParticipantInitialBalance = 100000
 
 type ChinchiroGameParticipantQuery struct {
 	ID                *uint32
@@ -88,17 +91,20 @@ type ChinchiroGameTurns struct {
 type ChinchiroGameTurnsQuery struct {
 	IDs      *[]uint32
 	GameID   *uint32
+	GameIDs  *[]uint32
 	Statuses *[]ChinchiroGameTurnStatus
 	Paging   *PagingQuery
 }
 
 type ChinchiroGameTurn struct {
-	ID         uint32
-	DealerID   uint32
-	Status     ChinchiroGameTurnStatus
-	TurnNumber int
-	RollIDs    []uint32
-	ResultIDs  []uint32
+	ID           uint32
+	GameID       uint32
+	DealerID     uint32
+	NextRollerID *uint32
+	Status       ChinchiroGameTurnStatus
+	TurnNumber   int
+	RollIDs      []uint32
+	ResultIDs    []uint32
 }
 
 type ChinchiroGameTurnStatus int
@@ -142,9 +148,11 @@ type ChinchiroGameTurnRolls struct {
 }
 
 type ChinchiroGameTurnRollsQuery struct {
-	IDs    *[]uint32
-	TurnID *uint32
-	Paging *PagingQuery
+	IDs           *[]uint32
+	TurnID        *uint32
+	TurnIDs       *[]uint32
+	ParticipantID *uint32
+	Paging        *PagingQuery
 }
 
 type ChinchiroGameTurnRoll struct {
@@ -160,10 +168,17 @@ type ChinchiroGameTurnResults struct {
 	List  []ChinchiroGameTurnResult
 }
 
+func (r ChinchiroGameTurnResults) IsRollFinished() bool {
+	return array.All(r.List, func(result ChinchiroGameTurnResult) bool {
+		return result.Winnings != nil
+	})
+}
+
 type ChinchiroGameTurnResultsQuery struct {
-	IDs    *[]uint32
-	TurnID *uint32
-	Paging *PagingQuery
+	IDs     *[]uint32
+	TurnID  *uint32
+	TurnIDs *[]uint32
+	Paging  *PagingQuery
 }
 
 type ChinchiroGameTurnResult struct {
@@ -171,8 +186,14 @@ type ChinchiroGameTurnResult struct {
 	TurnID        uint32
 	ParticipantID uint32
 	BetAmount     int
-	DiceRoll      ChinchiroDiceRoll
-	Winnings      int
+	DiceRoll      *ChinchiroDiceRoll
+	Winnings      *int
+}
+
+type ChinchiroGameTurnResultQuery struct {
+	ID            *uint32
+	TurnID        *uint32
+	ParticipantID *uint32
 }
 
 type ChinchiroCombination int
@@ -232,6 +253,34 @@ func (c ChinchiroCombination) String() string {
 	}
 }
 
+func (c ChinchiroCombination) Ratio() int {
+	switch c {
+	case ChinchiroCombinationHifumi:
+		return -2
+	case ChinchiroCombinationMenashi:
+		return -1
+	case ChinchiroCombinationIchinome,
+		ChinchiroCombinationNinome,
+		ChinchiroCombinationSannome,
+		ChinchiroCombinationYonnome,
+		ChinchiroCombinationGonome,
+		ChinchiroCombinationRokunome:
+		return 1
+	case ChinchiroCombinationNizoro,
+		ChinchiroCombinationSanzoro,
+		ChinchiroCombinationYonzoro,
+		ChinchiroCombinationGozoro,
+		ChinchiroCombinationRokuzoro:
+		return 3
+	case ChinchiroCombinationPinzoro:
+		return 5
+	case ChinchiroCombinationShigoro:
+		return 2
+	default:
+		return 0
+	}
+}
+
 func ChinchiroCombinationValues() []ChinchiroCombination {
 	return []ChinchiroCombination{
 		ChinchiroCombinationHifumi,
@@ -264,20 +313,24 @@ type ChinchiroGameRepository interface {
 	// game
 	FindGames(query ChinchiroGamesQuery) (games ChinchiroGames, err error)
 	FindGame(ID uint32) (game *ChinchiroGame, err error)
-	RegisterGame(ctx context.Context, game ChinchiroGame) (saved *ChinchiroGame, err error)
+	RegisterGame(ctx context.Context, roomID uint32, game ChinchiroGame) (saved *ChinchiroGame, err error)
 	UpdateGameStatus(ctx context.Context, gameID uint32, status ChinchiroGameStatus) (err error)
 	// game participant
 	FindGameParticipants(query ChinchiroGameParticipantsQuery) (participants ChinchiroGameParticipants, err error)
 	FindGameParticipant(query ChinchiroGameParticipantQuery) (participant *ChinchiroGameParticipant, err error)
+	RegisterGameParticipant(ctx context.Context, gameID uint32, participant ChinchiroGameParticipant) (saved *ChinchiroGameParticipant, err error)
 	// game turn
 	FindGameTurns(query ChinchiroGameTurnsQuery) (turns ChinchiroGameTurns, err error)
 	FindGameTurn(ID uint32) (turn *ChinchiroGameTurn, err error)
-	RegisterGameTurn(ctx context.Context, turn ChinchiroGameTurn) (saved *ChinchiroGameTurn, err error)
+	RegisterGameTurn(ctx context.Context, gameID uint32, turn ChinchiroGameTurn) (saved *ChinchiroGameTurn, err error)
 	UpdateGameTurnStatus(ctx context.Context, turnID uint32, status ChinchiroGameTurnStatus) (err error)
+	UpdateGameTurnRoller(ctx context.Context, turnID uint32, rollerID *uint32) (err error)
 	// game turn roll
-	FindGameTurnRolls(query ChinchiroGameTurnRollsQuery) (rolls []ChinchiroGameTurnRoll, err error)
-	RegisterGameTurnRoll(ctx context.Context, roll ChinchiroGameTurnRoll) (saved *ChinchiroGameTurnRoll, err error)
+	FindGameTurnRolls(query ChinchiroGameTurnRollsQuery) (rolls ChinchiroGameTurnRolls, err error)
+	RegisterGameTurnRoll(ctx context.Context, gameID uint32, turnID uint32, roll ChinchiroGameTurnRoll) (saved *ChinchiroGameTurnRoll, err error)
 	// game turn result
-	FindGameTurnResults(query ChinchiroGameTurnResultsQuery) (results []ChinchiroGameTurnResult, err error)
-	RegisterGameTurnResult(ctx context.Context, result ChinchiroGameTurnResult) (saved *ChinchiroGameTurnResult, err error)
+	FindGameTurnResults(query ChinchiroGameTurnResultsQuery) (results ChinchiroGameTurnResults, err error)
+	FindGameTurnResult(query ChinchiroGameTurnResultQuery) (result *ChinchiroGameTurnResult, err error)
+	RegisterGameTurnResult(ctx context.Context, gameID uint32, turnID uint32, result ChinchiroGameTurnResult) (saved *ChinchiroGameTurnResult, err error)
+	UpdateGameTurnResult(ctx context.Context, resultID uint32, result ChinchiroGameTurnResult) (saved *ChinchiroGameTurnResult, err error)
 }

@@ -1,12 +1,12 @@
 package db_test
 
 import (
-	"chat-role-play/application/usecase"
-	db "chat-role-play/infrastructure/rdb"
 	"context"
 	"fmt"
 	"log"
 	"testing"
+	"wolfort-games/application/usecase"
+	db "wolfort-games/infrastructure/rdb"
 
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
@@ -17,7 +17,7 @@ func NewTestDB() db.DB {
 	dsn := fmt.Sprintf("%s:%s@tcp(%s)/%s?charset=utf8mb4&parseTime=true",
 		"games",
 		"password",
-		"localhost",
+		"localhost:3307",
 		"gamesdb",
 	)
 	database, err := gorm.Open(mysql.Open(dsn), &gorm.Config{

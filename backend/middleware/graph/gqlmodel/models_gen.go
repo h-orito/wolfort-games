@@ -26,13 +26,6 @@ type BetChinchiroGameTurnParticipantPayload struct {
 	Ok bool `json:"ok"`
 }
 
-type ChinchiroGame struct {
-	ID           string                      `json:"id"`
-	Status       ChinchiroGameStatus         `json:"status"`
-	Participants []*ChinchiroGameParticipant `json:"participants"`
-	Turns        []*ChinchiroGameTurn        `json:"turns"`
-}
-
 type ChinchiroGameTurnParticipantResultsQuery struct {
 	Ids    []string       `json:"ids,omitempty"`
 	TurnID *string        `json:"turnId,omitempty"`
@@ -71,15 +64,6 @@ type ChinchiroRoomsQuery struct {
 	Paging   *PageableQuery        `json:"paging,omitempty"`
 }
 
-type DeleteChinchiroGameParticipant struct {
-	GameID        string `json:"gameId"`
-	ParticipantID string `json:"participantId"`
-}
-
-type DeleteChinchiroGameParticipantPayload struct {
-	Ok bool `json:"ok"`
-}
-
 type DeleteChinchiroRoomMaster struct {
 	RoomID   string `json:"roomID"`
 	MasterID string `json:"masterId"`
@@ -108,14 +92,6 @@ type LeaveChinchiroRoomPayload struct {
 
 type NewChinchiroGame struct {
 	RoomID string `json:"roomId"`
-}
-
-type NewChinchiroGameParticipant struct {
-	GameID string `json:"gameId"`
-}
-
-type NewChinchiroGameTurn struct {
-	GameID string `json:"gameId"`
 }
 
 type NewChinchiroRoom struct {
@@ -152,16 +128,8 @@ type PlayersQuery struct {
 	Paging *PageableQuery `json:"paging,omitempty"`
 }
 
-type RegisterChinchiroGameParticipantPayload struct {
-	ChinchiroGameParticipant *ChinchiroGameParticipant `json:"chinchiroGameParticipant"`
-}
-
 type RegisterChinchiroGamePayload struct {
 	ChinchiroGame *ChinchiroGame `json:"chinchiroGame"`
-}
-
-type RegisterChinchiroGameTurnPayload struct {
-	ChinchiroGameTurn *ChinchiroGameTurn `json:"chinchiroGameTurn"`
 }
 
 type RegisterChinchiroRoomMasterPayload struct {
@@ -190,10 +158,6 @@ type SimpleChinchiroRoom struct {
 	Status            ChinchiroRoomStatus    `json:"status"`
 	ParticipantCounts int                    `json:"participantCounts"`
 	Settings          *ChinchiroRoomSettings `json:"settings"`
-}
-
-type UpdateChinchiroGameParticipantPayload struct {
-	Ok bool `json:"ok"`
 }
 
 type UpdateChinchiroGameTurnStatus struct {

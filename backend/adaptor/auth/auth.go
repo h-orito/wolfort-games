@@ -1,10 +1,10 @@
 package auth
 
 import (
-	"chat-role-play/domain/model"
 	"context"
 	"log"
 	"net/http"
+	"wolfort-games/domain/model"
 
 	jwtmiddleware "github.com/auth0/go-jwt-middleware/v2"
 	"github.com/auth0/go-jwt-middleware/v2/validator"

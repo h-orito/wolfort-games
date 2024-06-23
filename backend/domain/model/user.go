@@ -1,7 +1,7 @@
 package model
 
 import (
-	"chat-role-play/util/array"
+	"wolfort-games/util/array"
 )
 
 type User struct {

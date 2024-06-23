@@ -1,11 +1,11 @@
 package db
 
 import (
-	model "chat-role-play/domain/model"
-	"chat-role-play/util/array"
 	"context"
 	"errors"
 	"fmt"
+	model "wolfort-games/domain/model"
+	"wolfort-games/util/array"
 
 	"gorm.io/gorm"
 )
@@ -59,7 +59,7 @@ func (repo *PlayerRepository) Save(ctx context.Context, p *model.Player) (_ *mod
 	rdbPlayer.PlayerName = p.Name
 	result := tx.Save(&rdbPlayer)
 	if result.Error != nil {
-		return nil, fmt.Errorf("failed to save: %s \n", result.Error)
+		return nil, fmt.Errorf("failed to save: %s", result.Error)
 	}
 	return repo.findPlayer(tx, rdbPlayer.ID)
 }
@@ -111,7 +111,7 @@ func (repo *PlayerRepository) findRdbPlayers(db *gorm.DB, query model.PlayersQue
 		return nil, nil
 	}
 	if result.Error != nil {
-		return nil, fmt.Errorf("failed to find: %s \n", result.Error)
+		return nil, fmt.Errorf("failed to find: %s", result.Error)
 	}
 	return rdbPlayers, nil
 }
@@ -123,7 +123,7 @@ func (repo *PlayerRepository) findRdbPlayer(db *gorm.DB, ID uint32) (_ *Player, 
 		return nil, nil
 	}
 	if result.Error != nil {
-		return nil, fmt.Errorf("failed to find: %s \n", result.Error)
+		return nil, fmt.Errorf("failed to find: %s", result.Error)
 	}
 	return &rdbPlayer, nil
 }
@@ -135,7 +135,7 @@ func (repo *PlayerRepository) findRdbPlayerByName(db *gorm.DB, name string) (_ *
 		return nil, nil
 	}
 	if result.Error != nil {
-		return nil, fmt.Errorf("failed to find: %s \n", result.Error)
+		return nil, fmt.Errorf("failed to find: %s", result.Error)
 	}
 	return &rdbPlayer, nil
 }
@@ -150,7 +150,7 @@ func (repo *PlayerRepository) findByUserName(db *gorm.DB, username string) (_ *m
 		return nil, nil
 	}
 	if result.Error != nil {
-		return nil, fmt.Errorf("failed to find: %s \n", result.Error)
+		return nil, fmt.Errorf("failed to find: %s", result.Error)
 	}
 	return repo.findPlayer(db, rdbPlayerAccount.PlayerID)
 }

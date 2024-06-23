@@ -1,11 +1,11 @@
 package gqlmodel
 
 import (
-	"chat-role-play/domain/model"
 	"encoding/base64"
 	"fmt"
 	"strconv"
 	"strings"
+	"wolfort-games/domain/model"
 )
 
 func (q *PageableQuery) MapToPagingQuery() *model.PagingQuery {

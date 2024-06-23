@@ -1,26 +1,26 @@
 package usecase
 
 import (
-	"chat-role-play/application/app_service"
-	"chat-role-play/domain/model"
 	"context"
+	"fmt"
+	"wolfort-games/application/app_service"
+	"wolfort-games/domain/dom_service"
+	"wolfort-games/domain/model"
+	"wolfort-games/util/array"
 )
 
 type ChinchiroGameUsecase interface {
 	// game
-	FindChinchiroGames(query model.ChinchiroGamesQuery) ([]model.ChinchiroGame, error)
+	FindChinchiroGames(query model.ChinchiroGamesQuery) (model.ChinchiroGames, error)
 	FindChinchiroGame(ID uint32) (*model.ChinchiroGame, error)
 	RegisterChinchiroGame(ctx context.Context, user model.User, roomID uint32, game model.ChinchiroGame) (*model.ChinchiroGame, error)
 	UpdateChinchiroGameStatus(ctx context.Context, user model.User, gameID uint32, status model.ChinchiroGameStatus) error
 	// game participant
 	FindChinchiroGameParticipants(query model.ChinchiroGameParticipantsQuery) (model.ChinchiroGameParticipants, error)
 	FindMyChinchiroGameParticipant(gameID uint32, user model.User) (*model.ChinchiroGameParticipant, error)
-	RegisterChinchiroGameParticipant(ctx context.Context, user model.User, gameID uint32, participant model.ChinchiroGameParticipant) (*model.ChinchiroGameParticipant, error)
-	DeleteChinchiroGameParticipant(ctx context.Context, user model.User, participantID uint32) error
 	// game turn
 	FindChinchiroGameTurns(query model.ChinchiroGameTurnsQuery) (model.ChinchiroGameTurns, error)
 	FindChinchiroGameTurn(ID uint32) (*model.ChinchiroGameTurn, error)
-	RegisterChinchiroGameTurn(ctx context.Context, user model.User, gameID uint32) (*model.ChinchiroGameTurn, error)
 	UpdateChinchiroGameTurnStatus(ctx context.Context, user model.User, turnID uint32, status model.ChinchiroGameTurnStatus) error
 	// game turn roll
 	FindChinchiroGameTurnRolls(query model.ChinchiroGameTurnRollsQuery) (model.ChinchiroGameTurnRolls, error)
@@ -30,92 +30,314 @@ type ChinchiroGameUsecase interface {
 }
 
 type chinchiroGameUsecase struct {
-	chinchiroGameService app_service.ChinchiroGameService
+	chinchiroRoomService             app_service.ChinchiroRoomService
+	chinchiroGameService             app_service.ChinchiroGameService
+	playerService                    app_service.PlayerService
+	chinchiroRoomMasterDomainService dom_service.ChinchiroRoomMasterDomainService
+	transaction                      Transaction
 }
 
-// DeleteChinchiroGameParticipant implements ChinchiroGameUsecase.
-func (*chinchiroGameUsecase) DeleteChinchiroGameParticipant(ctx context.Context, user model.User, participantID uint32) error {
-	panic("unimplemented")
+func (u *chinchiroGameUsecase) FindChinchiroGames(query model.ChinchiroGamesQuery) (model.ChinchiroGames, error) {
+	return u.chinchiroGameService.FindChinchiroGames(query)
 }
 
-// RegisterChinchiroGameParticipant implements ChinchiroGameUsecase.
-func (*chinchiroGameUsecase) RegisterChinchiroGameParticipant(ctx context.Context, user model.User, gameID uint32, participant model.ChinchiroGameParticipant) (*model.ChinchiroGameParticipant, error) {
-	panic("unimplemented")
+func (u *chinchiroGameUsecase) FindChinchiroGame(ID uint32) (*model.ChinchiroGame, error) {
+	return u.chinchiroGameService.FindChinchiroGame(ID)
 }
 
-// FindChinchiroGameParticipants implements ChinchiroGameUsecase.
-func (*chinchiroGameUsecase) FindChinchiroGameParticipants(query model.ChinchiroGameParticipantsQuery) (model.ChinchiroGameParticipants, error) {
-	panic("unimplemented")
+func (u *chinchiroGameUsecase) RegisterChinchiroGame(ctx context.Context, user model.User, roomID uint32, game model.ChinchiroGame) (*model.ChinchiroGame, error) {
+	r, err := u.transaction.DoInTx(ctx, func(ctx context.Context) (interface{}, error) {
+		err := u.assertRegisterGame(user, roomID)
+		if err != nil {
+			return nil, err
+		}
+		// game
+		return u.chinchiroGameService.RegisterChinchiroGame(ctx, roomID, game)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return r.(*model.ChinchiroGame), nil
 }
 
-// BetChinchiroGameTurn implements ChinchiroGameUsecase.
-func (*chinchiroGameUsecase) BetChinchiroGameTurn(ctx context.Context, user model.User, turnID uint32, betAmount int) error {
-	panic("unimplemented")
+func (u *chinchiroGameUsecase) UpdateChinchiroGameStatus(ctx context.Context, user model.User, gameID uint32, status model.ChinchiroGameStatus) error {
+	_, err := u.transaction.DoInTx(ctx, func(ctx context.Context) (interface{}, error) {
+		err := u.assertUpdateChinchiroGameStatus(user, gameID)
+		if err != nil {
+			return nil, err
+		}
+		return nil, u.chinchiroGameService.UpdateChinchiroGameStatus(ctx, gameID, status)
+	})
+	return err
 }
 
-// FindChinchiroGame implements ChinchiroGameUsecase.
-func (*chinchiroGameUsecase) FindChinchiroGame(ID uint32) (*model.ChinchiroGame, error) {
-	panic("unimplemented")
+func (u *chinchiroGameUsecase) FindChinchiroGameParticipants(query model.ChinchiroGameParticipantsQuery) (model.ChinchiroGameParticipants, error) {
+	return u.chinchiroGameService.FindChinchiroGameParticipants(query)
 }
 
-// FindChinchiroGameTurn implements ChinchiroGameUsecase.
-func (*chinchiroGameUsecase) FindChinchiroGameTurn(ID uint32) (*model.ChinchiroGameTurn, error) {
-	panic("unimplemented")
+func (u *chinchiroGameUsecase) FindMyChinchiroGameParticipant(gameID uint32, user model.User) (*model.ChinchiroGameParticipant, error) {
+	return u.findMyChinchiroGameParticipant(gameID, user)
 }
 
-// FindChinchiroGameTurnResults implements ChinchiroGameUsecase.
-func (*chinchiroGameUsecase) FindChinchiroGameTurnResults(query model.ChinchiroGameTurnResultsQuery) (model.ChinchiroGameTurnResults, error) {
-	panic("unimplemented")
+func (u *chinchiroGameUsecase) FindChinchiroGameTurns(query model.ChinchiroGameTurnsQuery) (model.ChinchiroGameTurns, error) {
+	return u.chinchiroGameService.FindChinchiroGameTurns(query)
 }
 
-// FindChinchiroGameTurnRolls implements ChinchiroGameUsecase.
-func (*chinchiroGameUsecase) FindChinchiroGameTurnRolls(query model.ChinchiroGameTurnRollsQuery) (model.ChinchiroGameTurnRolls, error) {
-	panic("unimplemented")
+func (u *chinchiroGameUsecase) FindChinchiroGameTurn(ID uint32) (*model.ChinchiroGameTurn, error) {
+	return u.chinchiroGameService.FindChinchiroGameTurn(ID)
 }
 
-// FindChinchiroGameTurns implements ChinchiroGameUsecase.
-func (*chinchiroGameUsecase) FindChinchiroGameTurns(query model.ChinchiroGameTurnsQuery) (model.ChinchiroGameTurns, error) {
-	panic("unimplemented")
+func (u *chinchiroGameUsecase) UpdateChinchiroGameTurnStatus(ctx context.Context, user model.User, turnID uint32, status model.ChinchiroGameTurnStatus) error {
+	_, err := u.transaction.DoInTx(ctx, func(ctx context.Context) (interface{}, error) {
+		err := u.assertUpdateChinchiroGameTurnStatus(user, turnID)
+		if err != nil {
+			return nil, err
+		}
+		return nil, u.chinchiroGameService.UpdateChinchiroGameTurn(ctx, turnID, status)
+	})
+	return err
 }
 
-// FindChinchiroGames implements ChinchiroGameUsecase.
-func (*chinchiroGameUsecase) FindChinchiroGames(query model.ChinchiroGamesQuery) ([]model.ChinchiroGame, error) {
-	panic("unimplemented")
+func (u *chinchiroGameUsecase) FindChinchiroGameTurnRolls(query model.ChinchiroGameTurnRollsQuery) (model.ChinchiroGameTurnRolls, error) {
+	return u.chinchiroGameService.FindChinchiroGameTurnRolls(query)
 }
 
-// FindMyChinchiroGameParticipant implements ChinchiroGameUsecase.
-func (*chinchiroGameUsecase) FindMyChinchiroGameParticipant(gameID uint32, user model.User) (*model.ChinchiroGameParticipant, error) {
-	panic("unimplemented")
+func (u *chinchiroGameUsecase) FindChinchiroGameTurnResults(query model.ChinchiroGameTurnResultsQuery) (model.ChinchiroGameTurnResults, error) {
+	return u.chinchiroGameService.FindChinchiroGameTurnResults(query)
 }
 
-// RegisterChinchiroGame implements ChinchiroGameUsecase.
-func (*chinchiroGameUsecase) RegisterChinchiroGame(ctx context.Context, user model.User, roomID uint32, game model.ChinchiroGame) (*model.ChinchiroGame, error) {
-	panic("unimplemented")
+func (u *chinchiroGameUsecase) BetChinchiroGameTurn(ctx context.Context, user model.User, turnID uint32, betAmount int) error {
+	_, err := u.transaction.DoInTx(ctx, func(ctx context.Context) (interface{}, error) {
+		game, err := u.findGameByTurnID(turnID)
+		if err != nil {
+			return nil, err
+		}
+		if game == nil {
+			return nil, fmt.Errorf("game not found")
+		}
+		gameParticipant, err := u.findMyChinchiroGameParticipant(game.ID, user)
+		if err != nil {
+			return nil, err
+		}
+		if gameParticipant == nil {
+			return nil, fmt.Errorf("game participant not found")
+		}
+		return nil, u.chinchiroGameService.RegisterChinchiroGameTurnBet(ctx, turnID, gameParticipant.ID, betAmount)
+	})
+	return err
 }
 
-// RegisterChinchiroGameTurn implements ChinchiroGameUsecase.
-func (*chinchiroGameUsecase) RegisterChinchiroGameTurn(ctx context.Context, user model.User, gameID uint32) (*model.ChinchiroGameTurn, error) {
-	panic("unimplemented")
+func (u *chinchiroGameUsecase) RollChinchiroGameTurn(ctx context.Context, user model.User, turnID uint32) error {
+	_, err := u.transaction.DoInTx(ctx, func(ctx context.Context) (interface{}, error) {
+		game, err := u.findGameByTurnID(turnID)
+		if err != nil {
+			return nil, err
+		}
+		if game == nil {
+			return nil, fmt.Errorf("game not found")
+		}
+		gameParticipant, err := u.findMyChinchiroGameParticipant(game.ID, user)
+		if err != nil {
+			return nil, err
+		}
+		if gameParticipant == nil {
+			return nil, fmt.Errorf("game participant not found")
+		}
+		return nil, u.chinchiroGameService.RegisterChinchiroGameTurnRoll(
+			ctx,
+			turnID,
+			gameParticipant.ID,
+			model.RollChinchiroDice(),
+		)
+	})
+	return err
 }
 
-// RollChinchiroGameTurn implements ChinchiroGameUsecase.
-func (*chinchiroGameUsecase) RollChinchiroGameTurn(ctx context.Context, user model.User, turnID uint32) error {
-	panic("unimplemented")
+// ----------------------------
+
+func (u *chinchiroGameUsecase) assertRegisterGame(
+	user model.User,
+	roomID uint32,
+) error {
+	player, authorities, err := u.findPlayerAndAuthorities(user)
+	if err != nil {
+		return err
+	}
+	if player == nil || authorities == nil {
+		return fmt.Errorf("player not found")
+	}
+	room, err := u.chinchiroRoomService.FindChinchiroRoom(roomID)
+	if err != nil {
+		return err
+	}
+	err = u.chinchiroRoomMasterDomainService.AssertModifyRoom(*room, *player, authorities)
+	if err != nil {
+		return err
+	}
+	games, err := u.chinchiroGameService.FindChinchiroGames(model.ChinchiroGamesQuery{
+		RoomID: &roomID,
+	})
+	if err != nil {
+		return err
+	}
+	if array.Any(games.List, func(g model.ChinchiroGame) bool {
+		return g.Status == model.ChinchiroGameStatusProgress
+	}) {
+		return fmt.Errorf("room already has opened game")
+	}
+	isExcludeGone := false
+	participants, err := u.chinchiroRoomService.FindChinchiroRoomParticipants(model.ChinchiroRoomParticipantsQuery{
+		RoomIDs:       &[]uint32{roomID},
+		IsExcludeGone: &isExcludeGone,
+	})
+	if err != nil {
+		return err
+	}
+	if len(participants.List) < 2 {
+		return fmt.Errorf("room has not enough participants")
+	}
+	return nil
 }
 
-// UpdateChinchiroGameStatus implements ChinchiroGameUsecase.
-func (*chinchiroGameUsecase) UpdateChinchiroGameStatus(ctx context.Context, user model.User, gameID uint32, status model.ChinchiroGameStatus) error {
-	panic("unimplemented")
+func (u *chinchiroGameUsecase) assertUpdateChinchiroGameStatus(
+	user model.User,
+	gameID uint32,
+) error {
+	player, authorities, err := u.findPlayerAndAuthorities(user)
+	if err != nil {
+		return err
+	}
+	if player == nil || authorities == nil {
+		return fmt.Errorf("player not found")
+	}
+
+	game, err := u.chinchiroGameService.FindChinchiroGame(gameID)
+	if err != nil {
+		return err
+	}
+	if game == nil {
+		return fmt.Errorf("game not found")
+	}
+	if game.Status == model.ChinchiroGameStatusFinished {
+		return fmt.Errorf("game already finished")
+	}
+	room, err := u.chinchiroRoomService.FindChinchiroRoom(game.ID)
+	if err != nil {
+		return err
+	}
+	err = u.chinchiroRoomMasterDomainService.AssertModifyRoom(*room, *player, authorities)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
-// UpdateChinchiroGameTurnStatus implements ChinchiroGameUsecase.
-func (*chinchiroGameUsecase) UpdateChinchiroGameTurnStatus(ctx context.Context, user model.User, turnID uint32, status model.ChinchiroGameTurnStatus) error {
-	panic("unimplemented")
+func (u *chinchiroGameUsecase) assertUpdateChinchiroGameTurnStatus(
+	user model.User,
+	turnID uint32,
+) error {
+	player, authorities, err := u.findPlayerAndAuthorities(user)
+	if err != nil {
+		return err
+	}
+	if player == nil || authorities == nil {
+		return fmt.Errorf("player not found")
+	}
+	room, err := u.findRoomByTurnID(turnID)
+	if err != nil {
+		return err
+	}
+	if room == nil {
+		return fmt.Errorf("room not found")
+	}
+	err = u.chinchiroRoomMasterDomainService.AssertModifyRoom(*room, *player, authorities)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
-// NewChinchiroGameUsecase creates a new ChinchiroGameUsecase.
-func NewChinchiroGameUsecase(chinchiroGameService app_service.ChinchiroGameService) ChinchiroGameUsecase {
+func (u *chinchiroGameUsecase) findMyChinchiroGameParticipant(gameID uint32, user model.User) (*model.ChinchiroGameParticipant, error) {
+	player, err := u.playerService.FindByUserName(user.UserName)
+	if err != nil {
+		return nil, err
+	}
+	if player == nil {
+		return nil, fmt.Errorf("player not found")
+	}
+	game, err := u.chinchiroGameService.FindChinchiroGame(gameID)
+	if err != nil {
+		return nil, err
+	}
+	if game == nil {
+		return nil, fmt.Errorf("game not found")
+	}
+	roomParticipant, err := u.chinchiroRoomService.FindChinchiroRoomParticipant(model.ChinchiroRoomParticipantQuery{
+		PlayerID: &player.ID,
+		RoomID:   &game.RoomID,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if roomParticipant == nil {
+		return nil, fmt.Errorf("room participant not found")
+	}
+	return u.chinchiroGameService.FindChinchiroGameParticipant(model.ChinchiroGameParticipantQuery{
+		GameID:            &gameID,
+		RoomParticipantID: &roomParticipant.ID,
+	})
+}
+
+func (u *chinchiroGameUsecase) findGameByTurnID(turnID uint32) (*model.ChinchiroGame, error) {
+	turn, err := u.chinchiroGameService.FindChinchiroGameTurn(turnID)
+	if err != nil {
+		return nil, err
+	}
+	if turn == nil {
+		return nil, fmt.Errorf("turn not found")
+	}
+	return u.chinchiroGameService.FindChinchiroGame(turn.GameID)
+}
+
+func (u *chinchiroGameUsecase) findRoomByTurnID(turnID uint32) (*model.ChinchiroRoom, error) {
+	game, err := u.findGameByTurnID(turnID)
+	if err != nil {
+		return nil, err
+	}
+	if game == nil {
+		return nil, fmt.Errorf("game not found")
+	}
+	return u.chinchiroRoomService.FindChinchiroRoom(game.RoomID)
+}
+
+func (u *chinchiroGameUsecase) findPlayerAndAuthorities(
+	user model.User,
+) (*model.Player, []model.PlayerAuthority, error) {
+	player, err := u.playerService.FindByUserName(user.UserName)
+	if err != nil {
+		return nil, nil, err
+	}
+	authorities, err := u.playerService.FindAuthorities(player.ID)
+	if err != nil {
+		return nil, nil, err
+	}
+	return player, authorities, nil
+}
+
+// ----------------------------
+
+func NewChinchiroGameUsecase(
+	chinchiroRoomService app_service.ChinchiroRoomService,
+	chinchiroGameService app_service.ChinchiroGameService,
+	playerService app_service.PlayerService,
+	chinchiroRoomMasterDomainService dom_service.ChinchiroRoomMasterDomainService,
+	tx Transaction,
+) ChinchiroGameUsecase {
 	return &chinchiroGameUsecase{
-		chinchiroGameService: chinchiroGameService,
+		chinchiroRoomService:             chinchiroRoomService,
+		chinchiroGameService:             chinchiroGameService,
+		playerService:                    playerService,
+		chinchiroRoomMasterDomainService: chinchiroRoomMasterDomainService,
+		transaction:                      tx,
 	}
 }

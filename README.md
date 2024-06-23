@@ -1,6 +1,6 @@
-# chat role play (GraphQL)
+# wolfort-games (GraphQL)
 
-GraphQL で遊びつつロールプレイしやすいチャット環境を作ってみる
+簡単なゲームで遊べるサイト
 
 ## backend
 

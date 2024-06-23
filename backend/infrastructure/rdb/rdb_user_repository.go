@@ -1,10 +1,10 @@
 package db
 
 import (
-	model "chat-role-play/domain/model"
-	"chat-role-play/util/array"
 	"errors"
 	"fmt"
+	model "wolfort-games/domain/model"
+	"wolfort-games/util/array"
 
 	"gorm.io/gorm"
 )

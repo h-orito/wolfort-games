@@ -1,11 +1,11 @@
 package db
 
 import (
-	model "chat-role-play/domain/model"
-	"chat-role-play/util/array"
 	"context"
 	"errors"
 	"fmt"
+	model "wolfort-games/domain/model"
+	"wolfort-games/util/array"
 
 	"gorm.io/gorm"
 )
@@ -21,11 +21,11 @@ func NewChinchiroRoomRepository(db *DB) *ChinchiroRoomRepository {
 }
 
 func (repo *ChinchiroRoomRepository) FindRooms(query model.ChinchiroRoomsQuery) (rooms []model.ChinchiroRoom, err error) {
-	return findRooms(repo.db.Connection, query)
+	return findChinchiroRooms(repo.db.Connection, query)
 }
 
 func (repo *ChinchiroRoomRepository) FindRoom(ID uint32) (room *model.ChinchiroRoom, err error) {
-	return findRoom(repo.db.Connection, ID)
+	return findChinchiroRoom(repo.db.Connection, ID)
 }
 
 func (repo *ChinchiroRoomRepository) RegisterRoom(ctx context.Context, room model.ChinchiroRoom) (saved *model.ChinchiroRoom, err error) {
@@ -34,18 +34,15 @@ func (repo *ChinchiroRoomRepository) RegisterRoom(ctx context.Context, room mode
 		return nil, fmt.Errorf("failed to get tx from context")
 	}
 	// room
-	r, err := registerRdbRoom(tx, room)
-	if err != nil {
-		return nil, err
-	}
+	r, err := registerRdbChinchiroRoom(tx, room)
 	if err != nil {
 		return nil, err
 	}
 	// room settings
-	if err := registerRoomSettings(tx, r.ID, room.Settings); err != nil {
+	if err := registerRdbChinchiroRoomSettings(tx, r.ID, room.Settings); err != nil {
 		return nil, err
 	}
-	return findRoom(tx, r.ID)
+	return findChinchiroRoom(tx, r.ID)
 }
 
 func (repo *ChinchiroRoomRepository) UpdateRoom(ctx context.Context, room model.ChinchiroRoom) (err error) {
@@ -53,11 +50,23 @@ func (repo *ChinchiroRoomRepository) UpdateRoom(ctx context.Context, room model.
 	if !ok {
 		return fmt.Errorf("failed to get tx from context")
 	}
-	return updateRoom(tx, room)
+	return updateRdbChinchiroRoom(tx, room)
+}
+
+func (repo *ChinchiroRoomRepository) UpdateRoomSettings(ctx context.Context, roomID uint32, settings model.ChinchiroRoomSettings) (err error) {
+	tx, ok := GetTx(ctx)
+	if !ok {
+		return fmt.Errorf("failed to get tx from context")
+	}
+	if err := updateRdbChinchiroRoomSettings(tx, roomID, settings); err != nil {
+		return err
+	}
+	return nil
+
 }
 
 func (repo *ChinchiroRoomRepository) FindRoomMasters(query model.ChinchiroRoomMastersQuery) (masters []model.ChinchiroRoomMaster, err error) {
-	return findRoomMasters(repo.db.Connection, query)
+	return findChinchiroRoomMasters(repo.db.Connection, query)
 }
 
 func (repo *ChinchiroRoomRepository) RegisterRoomMaster(ctx context.Context, roomID uint32, master model.ChinchiroRoomMaster) (saved *model.ChinchiroRoomMaster, err error) {
@@ -65,7 +74,11 @@ func (repo *ChinchiroRoomRepository) RegisterRoomMaster(ctx context.Context, roo
 	if !ok {
 		return nil, fmt.Errorf("failed to get tx from context")
 	}
-	return registerRoomMaster(tx, roomID, master)
+	rm, err := registerRdbChinchiroRoomMaster(tx, roomID, master)
+	if err != nil {
+		return nil, err
+	}
+	return rm.ToModel(), nil
 }
 
 func (repo *ChinchiroRoomRepository) DeleteRoomMaster(ctx context.Context, roomMasterID uint32) (err error) {
@@ -73,12 +86,12 @@ func (repo *ChinchiroRoomRepository) DeleteRoomMaster(ctx context.Context, roomM
 	if !ok {
 		return fmt.Errorf("failed to get tx from context")
 	}
-	return deleteRoomMaster(tx, roomMasterID)
+	return deleteRdbChinchiroRoomMaster(tx, roomMasterID)
 }
 
 // -----------------------
 
-func findRooms(db *gorm.DB, query model.ChinchiroRoomsQuery) (rooms []model.ChinchiroRoom, err error) {
+func findChinchiroRooms(db *gorm.DB, query model.ChinchiroRoomsQuery) (rooms []model.ChinchiroRoom, err error) {
 	rdbRooms, err := findRdbChinchiroRooms(db, query)
 	if err != nil {
 		return nil, err
@@ -95,6 +108,9 @@ func findRooms(db *gorm.DB, query model.ChinchiroRoomsQuery) (rooms []model.Chin
 	pts, err := findRdbChinchiroRoomParticipants(db, model.ChinchiroRoomParticipantsQuery{
 		RoomIDs: &ids,
 	})
+	if err != nil {
+		return nil, err
+	}
 	settings, err := findRdbChinchiroRoomSettings(db, chinchiroRoomSettingsQuery{RoomIDs: &ids})
 	if err != nil {
 		return nil, err
@@ -112,7 +128,7 @@ func findRooms(db *gorm.DB, query model.ChinchiroRoomsQuery) (rooms []model.Chin
 	}), nil
 }
 
-func findRoom(db *gorm.DB, ID uint32) (room *model.ChinchiroRoom, err error) {
+func findChinchiroRoom(db *gorm.DB, ID uint32) (room *model.ChinchiroRoom, err error) {
 	rdbRoom, err := findRdbChinchiroRoom(db, ID)
 	if err != nil {
 		return nil, err
@@ -120,22 +136,43 @@ func findRoom(db *gorm.DB, ID uint32) (room *model.ChinchiroRoom, err error) {
 	if rdbRoom == nil {
 		return nil, nil
 	}
-	roomMasters, err := findRdbChinchiroRoomMasterPlayers(db, ID)
+	roomMasters, err := findRdbChinchiroRoomMasterPlayers(db, model.ChinchiroRoomMastersQuery{
+		RoomID: &ID,
+	})
 	if err != nil {
 		return nil, err
 	}
 	participants, err := findRdbChinchiroRoomParticipants(db, model.ChinchiroRoomParticipantsQuery{
 		RoomIDs: &[]uint32{ID},
 	})
+	if err != nil {
+		return nil, err
+	}
 	games, err := findRdbChinchiroGames(db, model.ChinchiroGamesQuery{
 		RoomID: &ID,
 	})
+	if err != nil {
+		return nil, err
+	}
 	settings, err := findRdbChinchiroRoomSettings(db, chinchiroRoomSettingsQuery{RoomID: &ID})
 	if err != nil {
 		return nil, err
 	}
 	roomSettings := ToChinchiroRoomSettingsModel(settings)
 	return rdbRoom.ToModel(roomMasters, participants, games, *roomSettings), nil
+}
+
+func findChinchiroRoomMasters(db *gorm.DB, query model.ChinchiroRoomMastersQuery) (masters []model.ChinchiroRoomMaster, err error) {
+	rdbMasters, err := findRdbChinchiroRoomMasterPlayers(db, query)
+	if err != nil {
+		return nil, err
+	}
+	if rdbMasters == nil {
+		return nil, nil
+	}
+	return array.Map(rdbMasters, func(r ChinchiroRoomMasterPlayer) model.ChinchiroRoomMaster {
+		return *r.ToModel()
+	}), nil
 }
 
 // -----------------------
@@ -170,7 +207,7 @@ func findRdbChinchiroRooms(db *gorm.DB, query model.ChinchiroRoomsQuery) ([]Chin
 		return nil, nil
 	}
 	if result.Error != nil {
-		return nil, fmt.Errorf("failed to find: %s \n", result.Error)
+		return nil, fmt.Errorf("failed to find: %s", result.Error)
 	}
 
 	return rdbRooms, nil
@@ -178,27 +215,34 @@ func findRdbChinchiroRooms(db *gorm.DB, query model.ChinchiroRoomsQuery) ([]Chin
 
 func findRdbChinchiroRoom(db *gorm.DB, ID uint32) (*ChinchiroRoom, error) {
 	var rdb ChinchiroRoom
-	result := db.Model(&Game{}).First(&rdb, ID)
+	result := db.Model(&ChinchiroRoom{}).First(&rdb, ID)
 	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}
 	if result.Error != nil {
-		return nil, fmt.Errorf("failed to find: %s \n", result.Error)
+		return nil, fmt.Errorf("failed to find: %s", result.Error)
 	}
 	return &rdb, nil
 }
 
-func findRdbChinchiroRoomMasterPlayers(db *gorm.DB, roomID uint32) (_ []ChinchiroRoomMasterPlayer, err error) {
+func findRdbChinchiroRoomMasterPlayers(db *gorm.DB, query model.ChinchiroRoomMastersQuery) (_ []ChinchiroRoomMasterPlayer, err error) {
 	var rdbs []ChinchiroRoomMasterPlayer
-	result := db.Model(&ChinchiroRoomMasterPlayer{}).Where("room_id = ?", roomID).Find(&rdbs)
+	result := db.Model(&ChinchiroRoomMasterPlayer{})
+
+	if query.IDs != nil {
+		result = result.Where("id in (?)", *query.IDs)
+	}
+	if query.RoomID != nil {
+		result = result.Where("room_id = ?", *query.RoomID).Find(&rdbs)
+	}
+	result = result.Find(&rdbs)
 	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}
 	if result.Error != nil {
-		return nil, fmt.Errorf("failed to find: %s \n", result.Error)
+		return nil, fmt.Errorf("failed to find: %s", result.Error)
 	}
 	return rdbs, nil
-
 }
 
 func findRdbChinchiroRoomSettings(db *gorm.DB, query chinchiroRoomSettingsQuery) (_ []ChinchiroRoomSetting, err error) {
@@ -215,7 +259,7 @@ func findRdbChinchiroRoomSettings(db *gorm.DB, query chinchiroRoomSettingsQuery)
 		return nil, nil
 	}
 	if result.Error != nil {
-		return nil, fmt.Errorf("failed to find: %s \n", result.Error)
+		return nil, fmt.Errorf("failed to find: %s", result.Error)
 	}
 	return rdbs, nil
 }
@@ -225,47 +269,84 @@ type chinchiroRoomSettingsQuery struct {
 	RoomID  *uint32
 }
 
-func findRdbChinchiroRoomParticipants(db *gorm.DB, query model.ChinchiroRoomParticipantsQuery) (_ []ChinchiroRoomParticipant, err error) {
-	var rdbRoomParticipants []ChinchiroRoomParticipant
-	result := db.Model(&ChinchiroRoomParticipant{})
-	if query.Paging != nil {
-		result = result.Scopes(Paginate(query.Paging))
-	} else {
-		result = result.Scopes(Paginate(&model.PagingQuery{
-			PageSize:   10000,
-			PageNumber: 1,
-		}))
-	}
-	if query.IDs != nil {
-		result = result.Where("id in (?)", *query.IDs)
-	}
-	if query.Name != nil {
-		result = result.Where("participant_name like ?", fmt.Sprintf("%%%s%%", *query.Name))
-	}
-	if query.RoomIDs != nil {
-		result = result.Where("room_id in (?)", *query.RoomIDs)
-	}
-	if query.IsExcludeGone != nil && *query.IsExcludeGone {
-		result = result.Where("is_gone = ?", false)
-	}
-	result = result.Find(&rdbRoomParticipants)
-	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-		return nil, nil
-	}
-	if result.Error != nil {
-		return nil, fmt.Errorf("failed to find: %s \n", result.Error)
-	}
-
-	return rdbRoomParticipants, nil
-}
-
-func registerRdbRoom(db *gorm.DB, room model.ChinchiroRoom) (*ChinchiroRoom, error) {
+func registerRdbChinchiroRoom(db *gorm.DB, room model.ChinchiroRoom) (*ChinchiroRoom, error) {
 	r := ChinchiroRoom{
 		RoomName:       room.Name,
 		RoomStatusCode: room.Status.String(),
 	}
 	if result := db.Create(&r); result.Error != nil {
-		return nil, fmt.Errorf("failed to save: %s \n", result.Error)
+		return nil, fmt.Errorf("failed to save: %s", result.Error)
 	}
 	return &r, nil
+}
+
+func updateRdbChinchiroRoom(db *gorm.DB, room model.ChinchiroRoom) error {
+	if err := db.Model(&ChinchiroRoom{}).Where("id = ?", room.ID).Updates(ChinchiroRoom{
+		RoomName:       room.Name,
+		RoomStatusCode: room.Status.String(),
+	}).Error; err != nil {
+		return err
+	}
+	return nil
+}
+
+func registerRdbChinchiroRoomMaster(db *gorm.DB, roomID uint32, master model.ChinchiroRoomMaster) (*ChinchiroRoomMasterPlayer, error) {
+	r := ChinchiroRoomMasterPlayer{
+		RoomID:   roomID,
+		PlayerID: master.PlayerID,
+	}
+	if result := db.Create(&r); result.Error != nil {
+		return nil, fmt.Errorf("failed to save: %s", result.Error)
+	}
+	return &r, nil
+}
+
+func deleteRdbChinchiroRoomMaster(db *gorm.DB, roomMasterID uint32) error {
+	if err := db.Where("id = ?", roomMasterID).Delete(&ChinchiroRoomMasterPlayer{}).Error; err != nil {
+		return err
+	}
+	return nil
+}
+
+func registerRdbChinchiroRoomSettings(db *gorm.DB, roomID uint32, settings model.ChinchiroRoomSettings) error {
+	if err := registerRdbChinchiroRoomSetting(db, roomID, ChinchiroRoomSettingKeyPassword, orEmpty(settings.Password.Password)); err != nil {
+		return err
+	}
+	return nil
+}
+
+func updateRdbChinchiroRoomSettings(db *gorm.DB, roomID uint32, settings model.ChinchiroRoomSettings) error {
+	if err := updateRdbChinchiroRoomSetting(db, roomID, ChinchiroRoomSettingKeyPassword, orEmpty(settings.Password.Password)); err != nil {
+		return err
+	}
+	return nil
+}
+
+func registerRdbChinchiroRoomSetting(db *gorm.DB, roomID uint32, key ChinchiroRoomSettingKey, value string) (err error) {
+	if err := db.Create(&ChinchiroRoomSetting{
+		RoomID:           roomID,
+		RoomSettingKey:   key.String(),
+		RoomSettingValue: value,
+	}).Error; err != nil {
+		return err
+	}
+	return nil
+}
+
+func updateRdbChinchiroRoomSetting(db *gorm.DB, roomID uint32, key ChinchiroRoomSettingKey, value string) (err error) {
+	if err := db.Model(&ChinchiroRoomSetting{}).Where("room_id = ? and room_setting_key = ?", roomID, key.String()).Updates(&ChinchiroRoomSetting{
+		RoomSettingValue: value,
+	}).Error; err != nil {
+		return err
+	}
+	return nil
+}
+
+// -----------------------
+
+func orEmpty(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
 }

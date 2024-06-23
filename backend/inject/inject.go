@@ -1,17 +1,16 @@
 package inject
 
 import (
-	"chat-role-play/adaptor/auth"
-	"chat-role-play/adaptor/graphql"
-	"chat-role-play/application/app_service"
-	"chat-role-play/application/usecase"
-	"chat-role-play/domain/dom_service"
-	"chat-role-play/domain/model"
-	db "chat-role-play/infrastructure/rdb"
-	"chat-role-play/infrastructure/repository"
-	"chat-role-play/middleware/auth0"
-	"chat-role-play/middleware/graph"
 	"net/http"
+	"wolfort-games/adaptor/auth"
+	"wolfort-games/adaptor/graphql"
+	"wolfort-games/application/app_service"
+	"wolfort-games/application/usecase"
+	"wolfort-games/domain/dom_service"
+	"wolfort-games/domain/model"
+	db "wolfort-games/infrastructure/rdb"
+	"wolfort-games/middleware/auth0"
+	"wolfort-games/middleware/graph"
 
 	"github.com/99designs/gqlgen/graphql/handler"
 )
@@ -39,35 +38,39 @@ func injectResolver(
 ) graphql.Resolver {
 	tx := db.NewTransaction(database.Connection)
 	// repository
-	charaRepository := injectCharaRepository(database)
-	gameRepository := injectGameRepository(database)
-	gameParticipantRepository := injectGameParticipantRepository(database)
+	chinchiroRoomRepository := injectChinchiroRoomRepository(database)
+	chinchiroRoomParticipantRepository := injectChinchiroRoomParticipantRepository(database)
+	chinchiroGameRepository := injectChinchiroGameRepository(database)
 	playerRepository := injectPlayerRepository(database)
-	messageRepository := injectMessageRepository(database)
-	notificationRepository := injectNotificationRepository()
 	// domain service
-	gameMasterDomainService := injectGameMasterDomainService()
-	participateDomainService := injectParticipateDomainService(gameMasterDomainService)
-	messageDomainService := injectMessageDomainService()
+	chinchiroRoomMasterDomainService := injectChinchiroRoomMasterDomainService()
+	chinchiroRoomParticipateDomainService := injectChinchiroRoomParticipateDomainService(chinchiroRoomMasterDomainService)
+	chinchiroGameDomainService := injectChinchiroGameDomainService()
 	// application service
-	charaService := injectCharaService(charaRepository)
-	notifyService := injectNotifyService(notificationRepository, gameParticipantRepository, messageRepository, messageDomainService)
-	gameService := injectGameService(gameRepository, gameParticipantRepository, notifyService)
+	chinchiroRoomService := injectChinchiroRoomService(chinchiroRoomRepository, chinchiroRoomParticipantRepository)
+	chinchiroGameService := injectChinchiroGameService(chinchiroRoomParticipantRepository, chinchiroGameRepository, chinchiroGameDomainService)
 	playerService := injectPlayerService(playerRepository, userRepository)
-	messageService := injectMessageService(messageRepository, messageDomainService, notifyService)
 	// usecase
-	charaUsecase := injectCharaUsecase(charaService, tx)
-	gameUsecase := injectGameUsecase(gameService, playerService, charaService, gameMasterDomainService, participateDomainService, tx)
+	chinchiroRoomUsecase := injectChinchiroRoomUsecase(
+		chinchiroRoomService,
+		playerService,
+		chinchiroRoomMasterDomainService,
+		chinchiroRoomParticipateDomainService,
+		tx,
+	)
+	chinchiroGameUsecase := injectChinchiroGameUsecase(
+		chinchiroRoomService,
+		chinchiroGameService,
+		playerService,
+		chinchiroRoomMasterDomainService,
+		tx,
+	)
 	playerUsecase := injectPlayerUsecase(playerService, tx)
-	messageUsecase := injectMessageUsecase(messageService, gameService, playerService, messageDomainService, tx)
-	imageUsecase := injectImageUsecase()
-	loaders := injectLoaders(playerUsecase, gameUsecase, charaUsecase)
+	loaders := injectLoaders(playerUsecase, chinchiroRoomUsecase, chinchiroGameUsecase)
 	return graphql.NewResolver(
-		charaUsecase,
-		gameUsecase,
 		playerUsecase,
-		messageUsecase,
-		imageUsecase,
+		chinchiroRoomUsecase,
+		chinchiroGameUsecase,
 		loaders,
 	)
 }
@@ -75,31 +78,41 @@ func injectResolver(
 // loader
 func injectLoaders(
 	playerUsecase usecase.PlayerUsecase,
-	gameUsecase usecase.GameUsecase,
-	charaUsecase usecase.CharaUsecase,
+	chinchiroRoomUsecase usecase.ChinchiroRoomUsecase,
+	chinchiroGameUsecase usecase.ChinchiroGameUsecase,
 ) *graphql.Loaders {
-	return graphql.NewLoaders(playerUsecase, gameUsecase, charaUsecase)
+	return graphql.NewLoaders(playerUsecase, chinchiroRoomUsecase, chinchiroGameUsecase)
 }
 
 // usecase
-func injectCharaUsecase(charaService app_service.CharaService, tx usecase.Transaction) usecase.CharaUsecase {
-	return usecase.NewCharaUsecase(charaService, tx)
+func injectChinchiroRoomUsecase(
+	chinchiroRoomService app_service.ChinchiroRoomService,
+	playerService app_service.PlayerService,
+	chinchiroRoomMasterDomainService dom_service.ChinchiroRoomMasterDomainService,
+	chinchiroRoomParticipateDomainService dom_service.ChinchiroRoomParticipateDomainService,
+	tx usecase.Transaction,
+) usecase.ChinchiroRoomUsecase {
+	return usecase.NewChinchiroRoomUsecase(
+		chinchiroRoomService,
+		playerService,
+		chinchiroRoomMasterDomainService,
+		chinchiroRoomParticipateDomainService,
+		tx,
+	)
 }
 
-func injectGameUsecase(
-	gameService app_service.GameService,
+func injectChinchiroGameUsecase(
+	chinchiroRoomService app_service.ChinchiroRoomService,
+	chinchiroGameService app_service.ChinchiroGameService,
 	playerService app_service.PlayerService,
-	charaService app_service.CharaService,
-	gameMasterDomainService dom_service.GameMasterDomainService,
-	participateDomainService dom_service.ParticipateDomainService,
+	chinchiroRoomMasterDomainService dom_service.ChinchiroRoomMasterDomainService,
 	tx usecase.Transaction,
-) usecase.GameUsecase {
-	return usecase.NewGameUsecase(
-		gameService,
+) usecase.ChinchiroGameUsecase {
+	return usecase.NewChinchiroGameUsecase(
+		chinchiroRoomService,
+		chinchiroGameService,
 		playerService,
-		charaService,
-		gameMasterDomainService,
-		participateDomainService,
+		chinchiroRoomMasterDomainService,
 		tx,
 	)
 }
@@ -110,46 +123,20 @@ func injectPlayerUsecase(playerService app_service.PlayerService,
 	return usecase.NewPlayerUsecase(playerService, tx)
 }
 
-func injectMessageUsecase(
-	messageService app_service.MessageService,
-	gameService app_service.GameService,
-	playerService app_service.PlayerService,
-	messageDomainService dom_service.MessageDomainService,
-	tx usecase.Transaction,
-) usecase.MessageUsecase {
-	return usecase.NewMessageUsecase(
-		messageService,
-		gameService,
-		playerService,
-		messageDomainService,
-		tx,
-	)
-}
-
-func injectImageUsecase() usecase.ImageUsecase {
-	return usecase.NewImageUsecase()
-}
-
 // service
-func injectCharaService(charaRepository model.CharaRepository) app_service.CharaService {
-	return app_service.NewCharaService(charaRepository)
+func injectChinchiroRoomService(
+	chinchiroRoomRepository model.ChinchiroRoomRepository,
+	chinchiroRoomParticipantRepository model.ChinchiroRoomParticipantRepository,
+) app_service.ChinchiroRoomService {
+	return app_service.NewChinchiroRoomService(chinchiroRoomRepository, chinchiroRoomParticipantRepository)
 }
 
-func injectNotifyService(
-	notificationRepository model.NotificationRepository,
-	gameParticipantRepository model.GameParticipantRepository,
-	messageRepository model.MessageRepository,
-	messageDomainService dom_service.MessageDomainService,
-) app_service.NotifyService {
-	return app_service.NewNotifyService(notificationRepository, gameParticipantRepository, messageRepository, messageDomainService)
-}
-
-func injectGameService(
-	gameRepository model.GameRepository,
-	gameParticipantRepository model.GameParticipantRepository,
-	notifyService app_service.NotifyService,
-) app_service.GameService {
-	return app_service.NewGameService(gameRepository, gameParticipantRepository, notifyService)
+func injectChinchiroGameService(
+	chinchiroRoomParticipantRepository model.ChinchiroRoomParticipantRepository,
+	chinchiroGameRepository model.ChinchiroGameRepository,
+	chinchiroGameDomainService dom_service.ChinchiroGameDomainService,
+) app_service.ChinchiroGameService {
+	return app_service.NewChinchiroGameService(chinchiroRoomParticipantRepository, chinchiroGameRepository, chinchiroGameDomainService)
 }
 
 func injectPlayerService(
@@ -159,40 +146,32 @@ func injectPlayerService(
 	return app_service.NewPlayerService(playerRepository, userRepository)
 }
 
-func injectMessageService(
-	messageRepository model.MessageRepository,
-	messageDomainService dom_service.MessageDomainService,
-	notifyService app_service.NotifyService,
-) app_service.MessageService {
-	return app_service.NewMessageService(messageRepository, messageDomainService, notifyService)
-}
-
 // domain service
-func injectGameMasterDomainService() dom_service.GameMasterDomainService {
-	return dom_service.NewGameMasterDomainService()
+func injectChinchiroRoomMasterDomainService() dom_service.ChinchiroRoomMasterDomainService {
+	return dom_service.NewChinchiroRoomMasterDomainService()
 }
 
-func injectParticipateDomainService(
-	gmDomainService dom_service.GameMasterDomainService,
-) dom_service.ParticipateDomainService {
-	return dom_service.NewParticipateDomainService(gmDomainService)
+func injectChinchiroRoomParticipateDomainService(
+	masterDomainService dom_service.ChinchiroRoomMasterDomainService,
+) dom_service.ChinchiroRoomParticipateDomainService {
+	return dom_service.NewChinchiroRoomParticipateDomainService(masterDomainService)
 }
 
-func injectMessageDomainService() dom_service.MessageDomainService {
-	return dom_service.NewMessageDomainService()
+func injectChinchiroGameDomainService() dom_service.ChinchiroGameDomainService {
+	return dom_service.NewChinchiroGameDomainService()
 }
 
 // repository
-func injectCharaRepository(database db.DB) model.CharaRepository {
-	return db.NewCharaRepository(&database)
+func injectChinchiroRoomRepository(database db.DB) model.ChinchiroRoomRepository {
+	return db.NewChinchiroRoomRepository(&database)
 }
 
-func injectGameRepository(database db.DB) model.GameRepository {
-	return db.NewGameRepository(&database)
+func injectChinchiroRoomParticipantRepository(database db.DB) model.ChinchiroRoomParticipantRepository {
+	return db.NewChinchiroRoomParticipantRepository(&database)
 }
 
-func injectGameParticipantRepository(database db.DB) model.GameParticipantRepository {
-	return db.NewGameParticipantRepository(&database)
+func injectChinchiroGameRepository(database db.DB) model.ChinchiroGameRepository {
+	return db.NewChinchiroGameRepository(&database)
 }
 
 func injectPlayerRepository(database db.DB) model.PlayerRepository {
@@ -201,14 +180,6 @@ func injectPlayerRepository(database db.DB) model.PlayerRepository {
 
 func injectUserRepository(database db.DB) model.UserRepository {
 	return db.NewUserRepository(&database)
-}
-
-func injectMessageRepository(database db.DB) model.MessageRepository {
-	return db.NewMessageRepository(&database)
-}
-
-func injectNotificationRepository() model.NotificationRepository {
-	return repository.NewNotificationRepository()
 }
 
 // database

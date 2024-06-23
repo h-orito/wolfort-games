@@ -1,10 +1,10 @@
 package graphql
 
 import (
-	"chat-role-play/application/usecase"
-	"chat-role-play/domain/model"
-	"chat-role-play/util/array"
 	"context"
+	"wolfort-games/application/usecase"
+	"wolfort-games/domain/model"
+	"wolfort-games/util/array"
 
 	"github.com/graph-gophers/dataloader"
 )
@@ -141,7 +141,7 @@ func (c *chinchiroBatcher) batchLoadGame(ctx context.Context, keys dataloader.Ke
 		return nil
 	}
 	return array.Map(intids, func(id uint32) *dataloader.Result {
-		ps := array.Find(games, func(p model.ChinchiroGame) bool {
+		ps := array.Find(games.List, func(p model.ChinchiroGame) bool {
 			return p.ID == id
 		})
 		return &dataloader.Result{

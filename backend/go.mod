@@ -1,4 +1,4 @@
-module chat-role-play
+module wolfort-games
 
 go 1.20
 

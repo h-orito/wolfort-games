@@ -1,10 +1,10 @@
 package db_test
 
 import (
-	"chat-role-play/domain/model"
-	db "chat-role-play/infrastructure/rdb"
 	"context"
 	"testing"
+	"wolfort-games/domain/model"
+	db "wolfort-games/infrastructure/rdb"
 )
 
 func newPlayerRepository() model.PlayerRepository {
@@ -25,7 +25,7 @@ func TestFind(t *testing.T) {
 
 func TestFindByName(t *testing.T) {
 	repo := newPlayerRepository()
-	got, err := repo.FindByName("player name 1")
+	got, err := repo.FindByName("player1")
 	if err != nil {
 		t.Errorf("failed to find player: %s", err)
 	}
@@ -36,7 +36,7 @@ func TestFindByName(t *testing.T) {
 
 func TestFindByUserName(t *testing.T) {
 	repo := newPlayerRepository()
-	got, err := repo.FindByUserName("user name 1")
+	got, err := repo.FindByUserName("user1")
 	if err != nil {
 		t.Errorf("failed to find player: %s", err)
 	}

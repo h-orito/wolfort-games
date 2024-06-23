@@ -63,7 +63,7 @@ resolver:
 # gqlgen will search for any type names in the schema in these go packages
 # if they match it will use them, otherwise it will generate them.
 autobind:
-  - "chat-role-play/middleware/graph/gqlmodel"
+  - "wolfort-games/middleware/graph/gqlmodel"
 
 # This section declares type mapping between the GraphQL and go type systems
 #
@@ -103,6 +103,12 @@ models:
     fields:
       player:
         resolver: true
+  ChinchiroGame:
+    fields:
+      participants:
+        resolver: true
+      turns:
+        resolver: true
   ChinchiroGameParticipant:
     fields:
       roomParticipant:
@@ -110,6 +116,8 @@ models:
   ChinchiroGameTurn:
     fields:
       dealer:
+        resolver: true
+      nextRoller:
         resolver: true
       rolls:
         resolver: true

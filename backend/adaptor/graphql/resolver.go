@@ -1,11 +1,11 @@
 package graphql
 
 import (
-	"chat-role-play/application/usecase"
 	"encoding/base64"
 	"fmt"
 	"strconv"
 	"strings"
+	"wolfort-games/application/usecase"
 )
 
 // This file will not be regenerated automatically.

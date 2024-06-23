@@ -1,10 +1,10 @@
 package db
 
 import (
-	model "chat-role-play/domain/model"
-	"chat-role-play/util/array"
 	"strconv"
 	"time"
+	model "wolfort-games/domain/model"
+	"wolfort-games/util/array"
 )
 
 type ChinchiroRoom struct {
@@ -77,6 +77,7 @@ func (p ChinchiroRoomParticipant) ToModel() *model.ChinchiroRoomParticipant {
 		ID:       p.ID,
 		Name:     p.ParticipantName,
 		PlayerID: p.PlayerID,
+		RoomID:   p.RoomID,
 		IsGone:   p.IsGone,
 	}
 }

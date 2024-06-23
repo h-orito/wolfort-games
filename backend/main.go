@@ -1,10 +1,10 @@
 package main
 
 import (
-	"chat-role-play/inject"
 	"log"
 	"net/http"
 	"os"
+	"wolfort-games/inject"
 
 	"github.com/99designs/gqlgen/graphql/playground"
 	"github.com/rs/cors"

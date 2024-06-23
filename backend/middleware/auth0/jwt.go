@@ -1,13 +1,13 @@
 package auth0
 
 import (
-	"chat-role-play/config"
 	"context"
 	"log"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
+	"wolfort-games/config"
 
 	jwtmiddleware "github.com/auth0/go-jwt-middleware/v2"
 	"github.com/auth0/go-jwt-middleware/v2/jwks"

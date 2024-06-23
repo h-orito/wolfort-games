@@ -1,12 +1,25 @@
 package model
 
-import "sort"
+import (
+	"math/rand"
+	"sort"
+	"time"
+	"wolfort-games/util/array"
+)
 
 type ChinchiroDiceRoll struct {
 	Dice1       int
 	Dice2       int
 	Dice3       int
 	Combination ChinchiroCombination
+}
+
+func RollChinchiroDice() ChinchiroDiceRoll {
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+	dice1 := r.Intn(6) + 1
+	dice2 := r.Intn(6) + 1
+	dice3 := r.Intn(6) + 1
+	return NewChinchiroDiceRoll(dice1, dice2, dice3)
 }
 
 func NewChinchiroDiceRoll(dice1, dice2, dice3 int) ChinchiroDiceRoll {
@@ -77,4 +90,76 @@ func combination(dice1, dice2, dice3 int) ChinchiroCombination {
 	}
 
 	return ChinchiroCombinationMenashi
+}
+
+func (r ChinchiroDiceRoll) IsArashi() bool {
+	switch r.Combination {
+	case ChinchiroCombinationPinzoro,
+		ChinchiroCombinationNizoro,
+		ChinchiroCombinationSanzoro,
+		ChinchiroCombinationYonzoro,
+		ChinchiroCombinationGozoro,
+		ChinchiroCombinationRokuzoro:
+		return true
+	}
+	return false
+}
+
+func CanRollDice(rolls []ChinchiroDiceRoll) bool {
+	// 振れるのは3回まで
+	if len(rolls) >= 3 {
+		return false
+	}
+	// 既にメナシ以外の目が出ている場合は振れない
+	if array.Any(rolls, func(r ChinchiroDiceRoll) bool {
+		return r.Combination != ChinchiroCombinationMenashi
+	}) {
+		return false
+	}
+	return true
+}
+
+func DetermineDiceCombination(rolls []ChinchiroDiceRoll) *ChinchiroCombination {
+	count := len(rolls)
+	if count == 0 {
+		return nil
+	}
+	lastCombination := rolls[count-1].Combination
+	if count == 3 {
+		return &lastCombination
+	}
+	if lastCombination == ChinchiroCombinationMenashi {
+		return nil
+	}
+	return &lastCombination
+}
+
+// 子の獲得額を返す
+func CalculateWinnings(combination ChinchiroCombination, dealerCombination ChinchiroCombination, betAmount int) int {
+	ratio := combination.Ratio()
+	dealerRatio := dealerCombination.Ratio()
+
+	// 引き分け
+	if ratio == dealerRatio {
+		return 0
+	}
+
+	// 親の勝ち
+	if ratio < dealerRatio {
+		winnings := betAmount * dealerRatio
+		// ヒフミの場合は2倍払い
+		if ratio == -2 {
+			return winnings * ratio
+		} else {
+			return -winnings
+		}
+	}
+	// 子の勝ち
+	winnings := betAmount * ratio
+	// ヒフミの場合は2倍払い
+	if dealerRatio == -2 {
+		return -winnings * ratio
+	} else {
+		return winnings
+	}
 }

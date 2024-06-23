@@ -1,8 +1,8 @@
 package usecase
 
 import (
-	"chat-role-play/application/app_service"
-	"chat-role-play/domain/model"
+	"wolfort-games/application/app_service"
+	"wolfort-games/domain/model"
 )
 
 type PlayerUsecase interface {

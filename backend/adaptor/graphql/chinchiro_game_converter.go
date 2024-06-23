@@ -1,9 +1,9 @@
 package graphql
 
 import (
-	"chat-role-play/domain/model"
-	"chat-role-play/middleware/graph/gqlmodel"
-	"chat-role-play/util/array"
+	"wolfort-games/domain/model"
+	"wolfort-games/middleware/graph/gqlmodel"
+	"wolfort-games/util/array"
 )
 
 func MapToChinchiroGame(
@@ -15,11 +15,11 @@ func MapToChinchiroGame(
 	return &gqlmodel.ChinchiroGame{
 		ID:     intIdToBase64(p.ID, "ChinchiroGame"),
 		Status: gqlmodel.ChinchiroGameStatus(p.Status.String()),
-		Participants: array.Map(p.Participants.List, func(p model.ChinchiroGameParticipant) *gqlmodel.ChinchiroGameParticipant {
-			return MapToChinchiroGameParticipant(&p)
+		ParticipantIDs: array.Map(p.ParticipantIDs, func(id uint32) string {
+			return intIdToBase64(id, "ChinchiroGameParticipant")
 		}),
-		Turns: array.Map(p.Turns.List, func(t model.ChinchiroGameTurn) *gqlmodel.ChinchiroGameTurn {
-			return MapToChinchiroGameTurn(&t)
+		TurnIDs: array.Map(p.TurnIDs, func(id uint32) string {
+			return intIdToBase64(id, "ChinchiroGameTurn")
 		}),
 	}
 }
@@ -44,11 +44,17 @@ func MapToChinchiroGameTurn(
 	if p == nil {
 		return nil
 	}
+	var nextRollerID *string
+	if p.NextRollerID != nil {
+		nrID := intIdToBase64(*p.NextRollerID, "ChinchiroGameParticipant")
+		nextRollerID = &nrID
+	}
 	return &gqlmodel.ChinchiroGameTurn{
-		ID:         intIdToBase64(p.ID, "ChinchiroGameTurn"),
-		DealerID:   intIdToBase64(p.DealerID, "ChinchiroRoomParticipant"),
-		Status:     gqlmodel.ChinchiroGameTurnStatus(p.Status.String()),
-		TurnNumber: p.TurnNumber,
+		ID:           intIdToBase64(p.ID, "ChinchiroGameTurn"),
+		DealerID:     intIdToBase64(p.DealerID, "ChinchiroRoomParticipant"),
+		NextRollerID: nextRollerID,
+		Status:       gqlmodel.ChinchiroGameTurnStatus(p.Status.String()),
+		TurnNumber:   p.TurnNumber,
 		RollIDs: array.Map(p.RollIDs, func(id uint32) string {
 			return intIdToBase64(id, "ChinchiroGameRoll")
 		}),
@@ -89,6 +95,6 @@ func MapToChinchiroGameParticipantResult(
 		Dice2:         p.DiceRoll.Dice2,
 		Dice3:         p.DiceRoll.Dice3,
 		Combination:   gqlmodel.ChinchiroCombination(p.DiceRoll.Combination.String()),
-		Winnings:      p.Winnings,
+		Winnings:      *p.Winnings,
 	}
 }

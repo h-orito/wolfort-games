@@ -11,7 +11,7 @@ jobs:
   delivery:
     runs-on: [self-hosted]
     env:
-      IMAGE_NAME: chat-role-play-frontend
+      IMAGE_NAME: wolfort-games-frontend
     steps:
       - name: setup
         run: |
@@ -35,4 +35,4 @@ jobs:
           docker push ghcr.io/h-orito/${{ env.IMAGE_NAME }}
       - name: release
         run: |
-          kubectl delete pod -l app=chat-role-play-frontend
+          kubectl delete pod -l app=wolfort-games-frontend

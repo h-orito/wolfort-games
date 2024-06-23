@@ -1,14 +1,14 @@
 package db
 
 import (
-	"chat-role-play/application/usecase"
-	"chat-role-play/config"
-	"chat-role-play/domain/model"
 	"context"
 	"fmt"
 	"log"
 	"os"
 	"strings"
+	"wolfort-games/application/usecase"
+	"wolfort-games/config"
+	"wolfort-games/domain/model"
 
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"

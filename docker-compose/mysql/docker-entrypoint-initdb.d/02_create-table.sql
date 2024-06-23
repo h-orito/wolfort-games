@@ -164,11 +164,12 @@ alter table chinchiro_game_participants
 ;
 
 create table chinchiro_game_turns (
-    id                    int unsigned not null auto_increment comment 'ID',
-    game_id               int unsigned not null comment 'ゲームID',
-    dealer_participant_id int unsigned not null comment 'ディーラーID',
-    turn_status_code      varchar(255) not null comment 'ターンステータスコード',
-    turn_number           int unsigned not null comment 'ターン番号',
+    id                         int unsigned not null auto_increment comment 'ID',
+    game_id                    int unsigned not null comment 'ゲームID',
+    dealer_participant_id      int unsigned not null comment 'ディーラーID',
+    next_roller_participant_id int unsigned          comment '次のローラーID',
+    turn_status_code           varchar(255) not null comment 'ターンステータスコード',
+    turn_number                int unsigned not null comment 'ターン番号',
     created_at datetime     not null comment '作成日時',
     updated_at datetime     not null comment '更新日時',
     primary key (id),

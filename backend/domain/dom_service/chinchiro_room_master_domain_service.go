@@ -1,14 +1,14 @@
 package dom_service
 
 import (
-	"chat-role-play/domain/model"
-	"chat-role-play/util/array"
 	"fmt"
+	"wolfort-games/domain/model"
+	"wolfort-games/util/array"
 )
 
 type ChinchiroRoomMasterDomainService interface {
 	IsRoomMaster(room model.ChinchiroRoom, player model.Player, authorities []model.PlayerAuthority) bool
-	AssertModifyRoomMaster(room model.ChinchiroRoom, player model.Player, authorities []model.PlayerAuthority) error
+	AssertModifyRoom(room model.ChinchiroRoom, player model.Player, authorities []model.PlayerAuthority) error
 }
 
 type chinchiroRoomMasterDomainService struct {
@@ -34,7 +34,7 @@ func (ds *chinchiroRoomMasterDomainService) IsRoomMaster(
 	})
 }
 
-func (ds *chinchiroRoomMasterDomainService) AssertModifyRoomMaster(
+func (ds *chinchiroRoomMasterDomainService) AssertModifyRoom(
 	room model.ChinchiroRoom,
 	player model.Player,
 	authorities []model.PlayerAuthority,

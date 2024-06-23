@@ -1,12 +1,12 @@
 package graphql
 
 import (
-	"chat-role-play/adaptor/auth"
-	"chat-role-play/domain/model"
-	"chat-role-play/middleware/graph/gqlmodel"
-	"chat-role-play/util/array"
 	"context"
 	"fmt"
+	"wolfort-games/adaptor/auth"
+	"wolfort-games/domain/model"
+	"wolfort-games/middleware/graph/gqlmodel"
+	"wolfort-games/util/array"
 
 	"github.com/graph-gophers/dataloader"
 )

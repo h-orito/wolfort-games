@@ -1,8 +1,8 @@
 package model
 
 import (
-	"chat-role-play/util/array"
 	"context"
+	"wolfort-games/util/array"
 )
 
 type ChinchiroRoom struct {
@@ -80,6 +80,7 @@ type ChinchiroRoomParticipant struct {
 	ID       uint32
 	Name     string
 	PlayerID uint32
+	RoomID   uint32
 	IsGone   bool
 }
 
@@ -96,7 +97,7 @@ func (s ChinchiroRoomPasswordSettings) HasPassword() bool {
 }
 
 type ChinchiroRoomParticipantQuery struct {
-	ID       *[]uint32
+	ID       *uint32
 	RoomID   *uint32
 	PlayerID *uint32
 }
@@ -109,6 +110,7 @@ type ChinchiroRoomRepository interface {
 	FindRoom(ID uint32) (room *ChinchiroRoom, err error)
 	RegisterRoom(ctx context.Context, room ChinchiroRoom) (saved *ChinchiroRoom, err error)
 	UpdateRoom(ctx context.Context, room ChinchiroRoom) (err error)
+	UpdateRoomSettings(ctx context.Context, roomID uint32, settings ChinchiroRoomSettings) (err error)
 	// room master
 	FindRoomMasters(query ChinchiroRoomMastersQuery) (masters []ChinchiroRoomMaster, err error)
 	RegisterRoomMaster(ctx context.Context, roomID uint32, master ChinchiroRoomMaster) (saved *ChinchiroRoomMaster, err error)

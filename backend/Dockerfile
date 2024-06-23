@@ -1,6 +1,6 @@
 FROM golang:1.20
 
-WORKDIR /usr/local/go/src/chat-role-play
+WORKDIR /usr/local/go/src/wolfort-games
 
 COPY go.mod ./
 COPY go.sum ./

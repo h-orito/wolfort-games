@@ -4,13 +4,13 @@ package graph
 
 import (
 	"bytes"
-	"chat-role-play/middleware/graph/gqlmodel"
 	"context"
 	"errors"
 	"fmt"
 	"strconv"
 	"sync"
 	"sync/atomic"
+	"wolfort-games/middleware/graph/gqlmodel"
 
 	"github.com/99designs/gqlgen/graphql"
 	"github.com/99designs/gqlgen/graphql/introspection"
@@ -38,6 +38,7 @@ type Config struct {
 }
 
 type ResolverRoot interface {
+	ChinchiroGame() ChinchiroGameResolver
 	ChinchiroGameParticipant() ChinchiroGameParticipantResolver
 	ChinchiroGameTurn() ChinchiroGameTurnResolver
 	ChinchiroGameTurnParticipantResult() ChinchiroGameTurnParticipantResultResolver
@@ -75,6 +76,7 @@ type ComplexityRoot struct {
 	ChinchiroGameTurn struct {
 		Dealer     func(childComplexity int) int
 		ID         func(childComplexity int) int
+		NextRoller func(childComplexity int) int
 		Results    func(childComplexity int) int
 		Rolls      func(childComplexity int) int
 		Status     func(childComplexity int) int
@@ -128,10 +130,6 @@ type ComplexityRoot struct {
 		Dummy func(childComplexity int) int
 	}
 
-	DeleteChinchiroGameParticipantPayload struct {
-		Ok func(childComplexity int) int
-	}
-
 	DeleteChinchiroRoomMasterPayload struct {
 		Ok func(childComplexity int) int
 	}
@@ -146,13 +144,10 @@ type ComplexityRoot struct {
 
 	Mutation struct {
 		BetChinchiroGameTurnParticipant  func(childComplexity int, input gqlmodel.BetChinchiroGameTurnParticipant) int
-		DeleteChinchiroGameParticipant   func(childComplexity int, input gqlmodel.DeleteChinchiroGameParticipant) int
 		DeleteChinchiroRoomMaster        func(childComplexity int, input gqlmodel.DeleteChinchiroRoomMaster) int
 		DeleteChinchiroRoomParticipant   func(childComplexity int, input gqlmodel.DeleteChinchiroRoomParticipant) int
 		LeaveChinchiroRoom               func(childComplexity int, input gqlmodel.LeaveChinchiroRoom) int
 		RegisterChinchiroGame            func(childComplexity int, input gqlmodel.NewChinchiroGame) int
-		RegisterChinchiroGameParticipant func(childComplexity int, input gqlmodel.NewChinchiroGameParticipant) int
-		RegisterChinchiroGameTurn        func(childComplexity int, input gqlmodel.NewChinchiroGameTurn) int
 		RegisterChinchiroRoom            func(childComplexity int, input gqlmodel.NewChinchiroRoom) int
 		RegisterChinchiroRoomMaster      func(childComplexity int, input gqlmodel.NewChinchiroRoomMaster) int
 		RegisterChinchiroRoomParticipant func(childComplexity int, input gqlmodel.NewChinchiroRoomParticipant) int
@@ -185,16 +180,8 @@ type ComplexityRoot struct {
 		Players                             func(childComplexity int, query gqlmodel.PlayersQuery) int
 	}
 
-	RegisterChinchiroGameParticipantPayload struct {
-		ChinchiroGameParticipant func(childComplexity int) int
-	}
-
 	RegisterChinchiroGamePayload struct {
 		ChinchiroGame func(childComplexity int) int
-	}
-
-	RegisterChinchiroGameTurnPayload struct {
-		ChinchiroGameTurn func(childComplexity int) int
 	}
 
 	RegisterChinchiroRoomMasterPayload struct {
@@ -221,10 +208,6 @@ type ComplexityRoot struct {
 		Status            func(childComplexity int) int
 	}
 
-	UpdateChinchiroGameParticipantPayload struct {
-		Ok func(childComplexity int) int
-	}
-
 	UpdateChinchiroGameTurnStatusPayload struct {
 		Ok func(childComplexity int) int
 	}
@@ -242,11 +225,16 @@ type ComplexityRoot struct {
 	}
 }
 
+type ChinchiroGameResolver interface {
+	Participants(ctx context.Context, obj *gqlmodel.ChinchiroGame) ([]*gqlmodel.ChinchiroGameParticipant, error)
+	Turns(ctx context.Context, obj *gqlmodel.ChinchiroGame) ([]*gqlmodel.ChinchiroGameTurn, error)
+}
 type ChinchiroGameParticipantResolver interface {
 	RoomParticipant(ctx context.Context, obj *gqlmodel.ChinchiroGameParticipant) (*gqlmodel.ChinchiroRoomParticipant, error)
 }
 type ChinchiroGameTurnResolver interface {
 	Dealer(ctx context.Context, obj *gqlmodel.ChinchiroGameTurn) (*gqlmodel.ChinchiroGameParticipant, error)
+	NextRoller(ctx context.Context, obj *gqlmodel.ChinchiroGameTurn) (*gqlmodel.ChinchiroGameParticipant, error)
 
 	Rolls(ctx context.Context, obj *gqlmodel.ChinchiroGameTurn) ([]*gqlmodel.ChinchiroGameTurnParticipantRoll, error)
 	Results(ctx context.Context, obj *gqlmodel.ChinchiroGameTurn) ([]*gqlmodel.ChinchiroGameTurnParticipantResult, error)
@@ -281,9 +269,6 @@ type MutationResolver interface {
 	LeaveChinchiroRoom(ctx context.Context, input gqlmodel.LeaveChinchiroRoom) (*gqlmodel.LeaveChinchiroRoomPayload, error)
 	DeleteChinchiroRoomParticipant(ctx context.Context, input gqlmodel.DeleteChinchiroRoomParticipant) (*gqlmodel.DeleteChinchiroRoomParticipantPayload, error)
 	RegisterChinchiroGame(ctx context.Context, input gqlmodel.NewChinchiroGame) (*gqlmodel.RegisterChinchiroGamePayload, error)
-	RegisterChinchiroGameParticipant(ctx context.Context, input gqlmodel.NewChinchiroGameParticipant) (*gqlmodel.RegisterChinchiroGameParticipantPayload, error)
-	DeleteChinchiroGameParticipant(ctx context.Context, input gqlmodel.DeleteChinchiroGameParticipant) (*gqlmodel.DeleteChinchiroGameParticipantPayload, error)
-	RegisterChinchiroGameTurn(ctx context.Context, input gqlmodel.NewChinchiroGameTurn) (*gqlmodel.RegisterChinchiroGameTurnPayload, error)
 	UpdateChinchiroGameTurnStatus(ctx context.Context, input gqlmodel.UpdateChinchiroGameTurnStatus) (*gqlmodel.UpdateChinchiroGameTurnStatusPayload, error)
 	BetChinchiroGameTurnParticipant(ctx context.Context, input gqlmodel.BetChinchiroGameTurnParticipant) (*gqlmodel.BetChinchiroGameTurnParticipantPayload, error)
 	RollChinchiroGameTurnParticipant(ctx context.Context, input gqlmodel.RollChinchiroGameTurnParticipant) (*gqlmodel.RollChinchiroGameTurnParticipantPayload, error)
@@ -399,6 +384,13 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.ChinchiroGameTurn.ID(childComplexity), true
+
+	case "ChinchiroGameTurn.nextRoller":
+		if e.complexity.ChinchiroGameTurn.NextRoller == nil {
+			break
+		}
+
+		return e.complexity.ChinchiroGameTurn.NextRoller(childComplexity), true
 
 	case "ChinchiroGameTurn.results":
 		if e.complexity.ChinchiroGameTurn.Results == nil {
@@ -631,13 +623,6 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.ChinchiroRoomSettings.Dummy(childComplexity), true
 
-	case "DeleteChinchiroGameParticipantPayload.ok":
-		if e.complexity.DeleteChinchiroGameParticipantPayload.Ok == nil {
-			break
-		}
-
-		return e.complexity.DeleteChinchiroGameParticipantPayload.Ok(childComplexity), true
-
 	case "DeleteChinchiroRoomMasterPayload.ok":
 		if e.complexity.DeleteChinchiroRoomMasterPayload.Ok == nil {
 			break
@@ -670,18 +655,6 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.Mutation.BetChinchiroGameTurnParticipant(childComplexity, args["input"].(gqlmodel.BetChinchiroGameTurnParticipant)), true
-
-	case "Mutation.deleteChinchiroGameParticipant":
-		if e.complexity.Mutation.DeleteChinchiroGameParticipant == nil {
-			break
-		}
-
-		args, err := ec.field_Mutation_deleteChinchiroGameParticipant_args(context.TODO(), rawArgs)
-		if err != nil {
-			return 0, false
-		}
-
-		return e.complexity.Mutation.DeleteChinchiroGameParticipant(childComplexity, args["input"].(gqlmodel.DeleteChinchiroGameParticipant)), true
 
 	case "Mutation.deleteChinchiroRoomMaster":
 		if e.complexity.Mutation.DeleteChinchiroRoomMaster == nil {
@@ -730,30 +703,6 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.Mutation.RegisterChinchiroGame(childComplexity, args["input"].(gqlmodel.NewChinchiroGame)), true
-
-	case "Mutation.registerChinchiroGameParticipant":
-		if e.complexity.Mutation.RegisterChinchiroGameParticipant == nil {
-			break
-		}
-
-		args, err := ec.field_Mutation_registerChinchiroGameParticipant_args(context.TODO(), rawArgs)
-		if err != nil {
-			return 0, false
-		}
-
-		return e.complexity.Mutation.RegisterChinchiroGameParticipant(childComplexity, args["input"].(gqlmodel.NewChinchiroGameParticipant)), true
-
-	case "Mutation.registerChinchiroGameTurn":
-		if e.complexity.Mutation.RegisterChinchiroGameTurn == nil {
-			break
-		}
-
-		args, err := ec.field_Mutation_registerChinchiroGameTurn_args(context.TODO(), rawArgs)
-		if err != nil {
-			return 0, false
-		}
-
-		return e.complexity.Mutation.RegisterChinchiroGameTurn(childComplexity, args["input"].(gqlmodel.NewChinchiroGameTurn)), true
 
 	case "Mutation.registerChinchiroRoom":
 		if e.complexity.Mutation.RegisterChinchiroRoom == nil {
@@ -1023,26 +972,12 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Query.Players(childComplexity, args["query"].(gqlmodel.PlayersQuery)), true
 
-	case "RegisterChinchiroGameParticipantPayload.chinchiroGameParticipant":
-		if e.complexity.RegisterChinchiroGameParticipantPayload.ChinchiroGameParticipant == nil {
-			break
-		}
-
-		return e.complexity.RegisterChinchiroGameParticipantPayload.ChinchiroGameParticipant(childComplexity), true
-
 	case "RegisterChinchiroGamePayload.chinchiroGame":
 		if e.complexity.RegisterChinchiroGamePayload.ChinchiroGame == nil {
 			break
 		}
 
 		return e.complexity.RegisterChinchiroGamePayload.ChinchiroGame(childComplexity), true
-
-	case "RegisterChinchiroGameTurnPayload.chinchiroGameTurn":
-		if e.complexity.RegisterChinchiroGameTurnPayload.ChinchiroGameTurn == nil {
-			break
-		}
-
-		return e.complexity.RegisterChinchiroGameTurnPayload.ChinchiroGameTurn(childComplexity), true
 
 	case "RegisterChinchiroRoomMasterPayload.chinchiroRoomMaster":
 		if e.complexity.RegisterChinchiroRoomMasterPayload.ChinchiroRoomMaster == nil {
@@ -1107,13 +1042,6 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.SimpleChinchiroRoom.Status(childComplexity), true
 
-	case "UpdateChinchiroGameParticipantPayload.ok":
-		if e.complexity.UpdateChinchiroGameParticipantPayload.Ok == nil {
-			break
-		}
-
-		return e.complexity.UpdateChinchiroGameParticipantPayload.Ok(childComplexity), true
-
 	case "UpdateChinchiroGameTurnStatusPayload.ok":
 		if e.complexity.UpdateChinchiroGameTurnStatusPayload.Ok == nil {
 			break
@@ -1156,13 +1084,10 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 		ec.unmarshalInputChinchiroGameTurnsQuery,
 		ec.unmarshalInputChinchiroGamesQuery,
 		ec.unmarshalInputChinchiroRoomsQuery,
-		ec.unmarshalInputDeleteChinchiroGameParticipant,
 		ec.unmarshalInputDeleteChinchiroRoomMaster,
 		ec.unmarshalInputDeleteChinchiroRoomParticipant,
 		ec.unmarshalInputLeaveChinchiroRoom,
 		ec.unmarshalInputNewChinchiroGame,
-		ec.unmarshalInputNewChinchiroGameParticipant,
-		ec.unmarshalInputNewChinchiroGameTurn,
 		ec.unmarshalInputNewChinchiroRoom,
 		ec.unmarshalInputNewChinchiroRoomMaster,
 		ec.unmarshalInputNewChinchiroRoomParticipant,
@@ -1356,6 +1281,7 @@ type ChinchiroGameParticipant {
 type ChinchiroGameTurn {
   id: ID!
   dealer: ChinchiroGameParticipant!
+  nextRoller: ChinchiroGameParticipant
   status: ChinchiroGameTurnStatus!
   turnNumber: Int!
   rolls: [ChinchiroGameTurnParticipantRoll!]!
@@ -1525,17 +1451,8 @@ type Mutation {
   registerChinchiroGame(
     input: NewChinchiroGame!
   ): RegisterChinchiroGamePayload! @isAuthenticated
-  registerChinchiroGameParticipant(
-    input: NewChinchiroGameParticipant!
-  ): RegisterChinchiroGameParticipantPayload! @isAuthenticated
-  deleteChinchiroGameParticipant(
-    input: DeleteChinchiroGameParticipant!
-  ): DeleteChinchiroGameParticipantPayload! @isAuthenticated
 
   # game turn
-  registerChinchiroGameTurn(
-    input: NewChinchiroGameTurn!
-  ): RegisterChinchiroGameTurnPayload! @isAuthenticated
   updateChinchiroGameTurnStatus(
     input: UpdateChinchiroGameTurnStatus!
   ): UpdateChinchiroGameTurnStatusPayload! @isAuthenticated
@@ -1646,36 +1563,7 @@ type RegisterChinchiroGamePayload {
   chinchiroGame: ChinchiroGame!
 }
 
-input NewChinchiroGameParticipant {
-  gameId: ID!
-}
-
-type RegisterChinchiroGameParticipantPayload {
-  chinchiroGameParticipant: ChinchiroGameParticipant!
-}
-
-type UpdateChinchiroGameParticipantPayload {
-  ok: Boolean!
-}
-
-input DeleteChinchiroGameParticipant {
-  gameId: ID!
-  participantId: ID!
-}
-
-type DeleteChinchiroGameParticipantPayload {
-  ok: Boolean!
-}
-
 # game turn
-
-input NewChinchiroGameTurn {
-  gameId: ID!
-}
-
-type RegisterChinchiroGameTurnPayload {
-  chinchiroGameTurn: ChinchiroGameTurn!
-}
 
 input UpdateChinchiroGameTurnStatus {
   turnId: ID!
@@ -1720,22 +1608,7 @@ func (ec *executionContext) field_Mutation_betChinchiroGameTurnParticipant_args(
 	var arg0 gqlmodel.BetChinchiroGameTurnParticipant
 	if tmp, ok := rawArgs["input"]; ok {
 		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("input"))
-		arg0, err = ec.unmarshalNBetChinchiroGameTurnParticipant2chatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐBetChinchiroGameTurnParticipant(ctx, tmp)
-		if err != nil {
-			return nil, err
-		}
-	}
-	args["input"] = arg0
-	return args, nil
-}
-
-func (ec *executionContext) field_Mutation_deleteChinchiroGameParticipant_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
-	var err error
-	args := map[string]interface{}{}
-	var arg0 gqlmodel.DeleteChinchiroGameParticipant
-	if tmp, ok := rawArgs["input"]; ok {
-		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("input"))
-		arg0, err = ec.unmarshalNDeleteChinchiroGameParticipant2chatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐDeleteChinchiroGameParticipant(ctx, tmp)
+		arg0, err = ec.unmarshalNBetChinchiroGameTurnParticipant2wolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐBetChinchiroGameTurnParticipant(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -1750,7 +1623,7 @@ func (ec *executionContext) field_Mutation_deleteChinchiroRoomMaster_args(ctx co
 	var arg0 gqlmodel.DeleteChinchiroRoomMaster
 	if tmp, ok := rawArgs["input"]; ok {
 		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("input"))
-		arg0, err = ec.unmarshalNDeleteChinchiroRoomMaster2chatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐDeleteChinchiroRoomMaster(ctx, tmp)
+		arg0, err = ec.unmarshalNDeleteChinchiroRoomMaster2wolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐDeleteChinchiroRoomMaster(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -1765,7 +1638,7 @@ func (ec *executionContext) field_Mutation_deleteChinchiroRoomParticipant_args(c
 	var arg0 gqlmodel.DeleteChinchiroRoomParticipant
 	if tmp, ok := rawArgs["input"]; ok {
 		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("input"))
-		arg0, err = ec.unmarshalNDeleteChinchiroRoomParticipant2chatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐDeleteChinchiroRoomParticipant(ctx, tmp)
+		arg0, err = ec.unmarshalNDeleteChinchiroRoomParticipant2wolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐDeleteChinchiroRoomParticipant(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -1780,37 +1653,7 @@ func (ec *executionContext) field_Mutation_leaveChinchiroRoom_args(ctx context.C
 	var arg0 gqlmodel.LeaveChinchiroRoom
 	if tmp, ok := rawArgs["input"]; ok {
 		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("input"))
-		arg0, err = ec.unmarshalNLeaveChinchiroRoom2chatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐLeaveChinchiroRoom(ctx, tmp)
-		if err != nil {
-			return nil, err
-		}
-	}
-	args["input"] = arg0
-	return args, nil
-}
-
-func (ec *executionContext) field_Mutation_registerChinchiroGameParticipant_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
-	var err error
-	args := map[string]interface{}{}
-	var arg0 gqlmodel.NewChinchiroGameParticipant
-	if tmp, ok := rawArgs["input"]; ok {
-		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("input"))
-		arg0, err = ec.unmarshalNNewChinchiroGameParticipant2chatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐNewChinchiroGameParticipant(ctx, tmp)
-		if err != nil {
-			return nil, err
-		}
-	}
-	args["input"] = arg0
-	return args, nil
-}
-
-func (ec *executionContext) field_Mutation_registerChinchiroGameTurn_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
-	var err error
-	args := map[string]interface{}{}
-	var arg0 gqlmodel.NewChinchiroGameTurn
-	if tmp, ok := rawArgs["input"]; ok {
-		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("input"))
-		arg0, err = ec.unmarshalNNewChinchiroGameTurn2chatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐNewChinchiroGameTurn(ctx, tmp)
+		arg0, err = ec.unmarshalNLeaveChinchiroRoom2wolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐLeaveChinchiroRoom(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -1825,7 +1668,7 @@ func (ec *executionContext) field_Mutation_registerChinchiroGame_args(ctx contex
 	var arg0 gqlmodel.NewChinchiroGame
 	if tmp, ok := rawArgs["input"]; ok {
 		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("input"))
-		arg0, err = ec.unmarshalNNewChinchiroGame2chatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐNewChinchiroGame(ctx, tmp)
+		arg0, err = ec.unmarshalNNewChinchiroGame2wolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐNewChinchiroGame(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -1840,7 +1683,7 @@ func (ec *executionContext) field_Mutation_registerChinchiroRoomMaster_args(ctx 
 	var arg0 gqlmodel.NewChinchiroRoomMaster
 	if tmp, ok := rawArgs["input"]; ok {
 		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("input"))
-		arg0, err = ec.unmarshalNNewChinchiroRoomMaster2chatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐNewChinchiroRoomMaster(ctx, tmp)
+		arg0, err = ec.unmarshalNNewChinchiroRoomMaster2wolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐNewChinchiroRoomMaster(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -1855,7 +1698,7 @@ func (ec *executionContext) field_Mutation_registerChinchiroRoomParticipant_args
 	var arg0 gqlmodel.NewChinchiroRoomParticipant
 	if tmp, ok := rawArgs["input"]; ok {
 		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("input"))
-		arg0, err = ec.unmarshalNNewChinchiroRoomParticipant2chatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐNewChinchiroRoomParticipant(ctx, tmp)
+		arg0, err = ec.unmarshalNNewChinchiroRoomParticipant2wolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐNewChinchiroRoomParticipant(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -1870,7 +1713,7 @@ func (ec *executionContext) field_Mutation_registerChinchiroRoom_args(ctx contex
 	var arg0 gqlmodel.NewChinchiroRoom
 	if tmp, ok := rawArgs["input"]; ok {
 		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("input"))
-		arg0, err = ec.unmarshalNNewChinchiroRoom2chatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐNewChinchiroRoom(ctx, tmp)
+		arg0, err = ec.unmarshalNNewChinchiroRoom2wolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐNewChinchiroRoom(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -1885,7 +1728,7 @@ func (ec *executionContext) field_Mutation_rollChinchiroGameTurnParticipant_args
 	var arg0 gqlmodel.RollChinchiroGameTurnParticipant
 	if tmp, ok := rawArgs["input"]; ok {
 		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("input"))
-		arg0, err = ec.unmarshalNRollChinchiroGameTurnParticipant2chatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐRollChinchiroGameTurnParticipant(ctx, tmp)
+		arg0, err = ec.unmarshalNRollChinchiroGameTurnParticipant2wolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐRollChinchiroGameTurnParticipant(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -1900,7 +1743,7 @@ func (ec *executionContext) field_Mutation_updateChinchiroGameTurnStatus_args(ct
 	var arg0 gqlmodel.UpdateChinchiroGameTurnStatus
 	if tmp, ok := rawArgs["input"]; ok {
 		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("input"))
-		arg0, err = ec.unmarshalNUpdateChinchiroGameTurnStatus2chatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐUpdateChinchiroGameTurnStatus(ctx, tmp)
+		arg0, err = ec.unmarshalNUpdateChinchiroGameTurnStatus2wolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐUpdateChinchiroGameTurnStatus(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -1915,7 +1758,7 @@ func (ec *executionContext) field_Mutation_updateChinchiroRoomParticipant_args(c
 	var arg0 gqlmodel.UpdateChinchiroRoomParticipant
 	if tmp, ok := rawArgs["input"]; ok {
 		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("input"))
-		arg0, err = ec.unmarshalNUpdateChinchiroRoomParticipant2chatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐUpdateChinchiroRoomParticipant(ctx, tmp)
+		arg0, err = ec.unmarshalNUpdateChinchiroRoomParticipant2wolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐUpdateChinchiroRoomParticipant(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -1930,7 +1773,7 @@ func (ec *executionContext) field_Mutation_updateChinchiroRoomSettings_args(ctx 
 	var arg0 gqlmodel.UpdateChinchiroRoomSettings
 	if tmp, ok := rawArgs["input"]; ok {
 		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("input"))
-		arg0, err = ec.unmarshalNUpdateChinchiroRoomSettings2chatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐUpdateChinchiroRoomSettings(ctx, tmp)
+		arg0, err = ec.unmarshalNUpdateChinchiroRoomSettings2wolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐUpdateChinchiroRoomSettings(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -1945,7 +1788,7 @@ func (ec *executionContext) field_Mutation_updateChinchiroRoomStatus_args(ctx co
 	var arg0 gqlmodel.UpdateChinchiroRoomStatus
 	if tmp, ok := rawArgs["input"]; ok {
 		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("input"))
-		arg0, err = ec.unmarshalNUpdateChinchiroRoomStatus2chatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐUpdateChinchiroRoomStatus(ctx, tmp)
+		arg0, err = ec.unmarshalNUpdateChinchiroRoomStatus2wolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐUpdateChinchiroRoomStatus(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -1975,7 +1818,7 @@ func (ec *executionContext) field_Query_chinchiroGameTurnParticipantResults_args
 	var arg0 gqlmodel.ChinchiroGameTurnParticipantResultsQuery
 	if tmp, ok := rawArgs["query"]; ok {
 		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("query"))
-		arg0, err = ec.unmarshalNChinchiroGameTurnParticipantResultsQuery2chatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameTurnParticipantResultsQuery(ctx, tmp)
+		arg0, err = ec.unmarshalNChinchiroGameTurnParticipantResultsQuery2wolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameTurnParticipantResultsQuery(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -1990,7 +1833,7 @@ func (ec *executionContext) field_Query_chinchiroGameTurnRolls_args(ctx context.
 	var arg0 *gqlmodel.ChinchiroGameTurnRollsQuery
 	if tmp, ok := rawArgs["query"]; ok {
 		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("query"))
-		arg0, err = ec.unmarshalOChinchiroGameTurnRollsQuery2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameTurnRollsQuery(ctx, tmp)
+		arg0, err = ec.unmarshalOChinchiroGameTurnRollsQuery2ᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameTurnRollsQuery(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -2020,7 +1863,7 @@ func (ec *executionContext) field_Query_chinchiroGameTurns_args(ctx context.Cont
 	var arg0 gqlmodel.ChinchiroGameTurnsQuery
 	if tmp, ok := rawArgs["query"]; ok {
 		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("query"))
-		arg0, err = ec.unmarshalNChinchiroGameTurnsQuery2chatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameTurnsQuery(ctx, tmp)
+		arg0, err = ec.unmarshalNChinchiroGameTurnsQuery2wolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameTurnsQuery(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -2050,7 +1893,7 @@ func (ec *executionContext) field_Query_chinchiroGames_args(ctx context.Context,
 	var arg0 gqlmodel.ChinchiroGamesQuery
 	if tmp, ok := rawArgs["query"]; ok {
 		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("query"))
-		arg0, err = ec.unmarshalNChinchiroGamesQuery2chatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGamesQuery(ctx, tmp)
+		arg0, err = ec.unmarshalNChinchiroGamesQuery2wolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGamesQuery(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -2080,7 +1923,7 @@ func (ec *executionContext) field_Query_chinchiroRooms_args(ctx context.Context,
 	var arg0 gqlmodel.ChinchiroRoomsQuery
 	if tmp, ok := rawArgs["query"]; ok {
 		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("query"))
-		arg0, err = ec.unmarshalNChinchiroRoomsQuery2chatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroRoomsQuery(ctx, tmp)
+		arg0, err = ec.unmarshalNChinchiroRoomsQuery2wolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroRoomsQuery(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -2140,7 +1983,7 @@ func (ec *executionContext) field_Query_players_args(ctx context.Context, rawArg
 	var arg0 gqlmodel.PlayersQuery
 	if tmp, ok := rawArgs["query"]; ok {
 		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("query"))
-		arg0, err = ec.unmarshalNPlayersQuery2chatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐPlayersQuery(ctx, tmp)
+		arg0, err = ec.unmarshalNPlayersQuery2wolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐPlayersQuery(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -2303,7 +2146,7 @@ func (ec *executionContext) _ChinchiroGame_status(ctx context.Context, field gra
 	}
 	res := resTmp.(gqlmodel.ChinchiroGameStatus)
 	fc.Result = res
-	return ec.marshalNChinchiroGameStatus2chatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameStatus(ctx, field.Selections, res)
+	return ec.marshalNChinchiroGameStatus2wolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameStatus(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_ChinchiroGame_status(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -2333,7 +2176,7 @@ func (ec *executionContext) _ChinchiroGame_participants(ctx context.Context, fie
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return obj.Participants, nil
+		return ec.resolvers.ChinchiroGame().Participants(rctx, obj)
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -2347,15 +2190,15 @@ func (ec *executionContext) _ChinchiroGame_participants(ctx context.Context, fie
 	}
 	res := resTmp.([]*gqlmodel.ChinchiroGameParticipant)
 	fc.Result = res
-	return ec.marshalNChinchiroGameParticipant2ᚕᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameParticipantᚄ(ctx, field.Selections, res)
+	return ec.marshalNChinchiroGameParticipant2ᚕᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameParticipantᚄ(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_ChinchiroGame_participants(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "ChinchiroGame",
 		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
+		IsMethod:   true,
+		IsResolver: true,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			switch field.Name {
 			case "id":
@@ -2387,7 +2230,7 @@ func (ec *executionContext) _ChinchiroGame_turns(ctx context.Context, field grap
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return obj.Turns, nil
+		return ec.resolvers.ChinchiroGame().Turns(rctx, obj)
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -2401,21 +2244,23 @@ func (ec *executionContext) _ChinchiroGame_turns(ctx context.Context, field grap
 	}
 	res := resTmp.([]*gqlmodel.ChinchiroGameTurn)
 	fc.Result = res
-	return ec.marshalNChinchiroGameTurn2ᚕᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameTurnᚄ(ctx, field.Selections, res)
+	return ec.marshalNChinchiroGameTurn2ᚕᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameTurnᚄ(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_ChinchiroGame_turns(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "ChinchiroGame",
 		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
+		IsMethod:   true,
+		IsResolver: true,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			switch field.Name {
 			case "id":
 				return ec.fieldContext_ChinchiroGameTurn_id(ctx, field)
 			case "dealer":
 				return ec.fieldContext_ChinchiroGameTurn_dealer(ctx, field)
+			case "nextRoller":
+				return ec.fieldContext_ChinchiroGameTurn_nextRoller(ctx, field)
 			case "status":
 				return ec.fieldContext_ChinchiroGameTurn_status(ctx, field)
 			case "turnNumber":
@@ -2503,7 +2348,7 @@ func (ec *executionContext) _ChinchiroGameParticipant_roomParticipant(ctx contex
 	}
 	res := resTmp.(*gqlmodel.ChinchiroRoomParticipant)
 	fc.Result = res
-	return ec.marshalNChinchiroRoomParticipant2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroRoomParticipant(ctx, field.Selections, res)
+	return ec.marshalNChinchiroRoomParticipant2ᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroRoomParticipant(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_ChinchiroGameParticipant_roomParticipant(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -2689,10 +2534,61 @@ func (ec *executionContext) _ChinchiroGameTurn_dealer(ctx context.Context, field
 	}
 	res := resTmp.(*gqlmodel.ChinchiroGameParticipant)
 	fc.Result = res
-	return ec.marshalNChinchiroGameParticipant2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameParticipant(ctx, field.Selections, res)
+	return ec.marshalNChinchiroGameParticipant2ᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameParticipant(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_ChinchiroGameTurn_dealer(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ChinchiroGameTurn",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_ChinchiroGameParticipant_id(ctx, field)
+			case "roomParticipant":
+				return ec.fieldContext_ChinchiroGameParticipant_roomParticipant(ctx, field)
+			case "balance":
+				return ec.fieldContext_ChinchiroGameParticipant_balance(ctx, field)
+			case "turnOrder":
+				return ec.fieldContext_ChinchiroGameParticipant_turnOrder(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type ChinchiroGameParticipant", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _ChinchiroGameTurn_nextRoller(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.ChinchiroGameTurn) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_ChinchiroGameTurn_nextRoller(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.ChinchiroGameTurn().NextRoller(rctx, obj)
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		return graphql.Null
+	}
+	res := resTmp.(*gqlmodel.ChinchiroGameParticipant)
+	fc.Result = res
+	return ec.marshalOChinchiroGameParticipant2ᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameParticipant(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_ChinchiroGameTurn_nextRoller(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "ChinchiroGameTurn",
 		Field:      field,
@@ -2743,7 +2639,7 @@ func (ec *executionContext) _ChinchiroGameTurn_status(ctx context.Context, field
 	}
 	res := resTmp.(gqlmodel.ChinchiroGameTurnStatus)
 	fc.Result = res
-	return ec.marshalNChinchiroGameTurnStatus2chatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameTurnStatus(ctx, field.Selections, res)
+	return ec.marshalNChinchiroGameTurnStatus2wolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameTurnStatus(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_ChinchiroGameTurn_status(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -2831,7 +2727,7 @@ func (ec *executionContext) _ChinchiroGameTurn_rolls(ctx context.Context, field 
 	}
 	res := resTmp.([]*gqlmodel.ChinchiroGameTurnParticipantRoll)
 	fc.Result = res
-	return ec.marshalNChinchiroGameTurnParticipantRoll2ᚕᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameTurnParticipantRollᚄ(ctx, field.Selections, res)
+	return ec.marshalNChinchiroGameTurnParticipantRoll2ᚕᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameTurnParticipantRollᚄ(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_ChinchiroGameTurn_rolls(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -2891,7 +2787,7 @@ func (ec *executionContext) _ChinchiroGameTurn_results(ctx context.Context, fiel
 	}
 	res := resTmp.([]*gqlmodel.ChinchiroGameTurnParticipantResult)
 	fc.Result = res
-	return ec.marshalNChinchiroGameTurnParticipantResult2ᚕᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameTurnParticipantResultᚄ(ctx, field.Selections, res)
+	return ec.marshalNChinchiroGameTurnParticipantResult2ᚕᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameTurnParticipantResultᚄ(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_ChinchiroGameTurn_results(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -2997,7 +2893,7 @@ func (ec *executionContext) _ChinchiroGameTurnParticipantResult_turn(ctx context
 	}
 	res := resTmp.(*gqlmodel.ChinchiroGameTurn)
 	fc.Result = res
-	return ec.marshalNChinchiroGameTurn2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameTurn(ctx, field.Selections, res)
+	return ec.marshalNChinchiroGameTurn2ᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameTurn(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_ChinchiroGameTurnParticipantResult_turn(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -3012,6 +2908,8 @@ func (ec *executionContext) fieldContext_ChinchiroGameTurnParticipantResult_turn
 				return ec.fieldContext_ChinchiroGameTurn_id(ctx, field)
 			case "dealer":
 				return ec.fieldContext_ChinchiroGameTurn_dealer(ctx, field)
+			case "nextRoller":
+				return ec.fieldContext_ChinchiroGameTurn_nextRoller(ctx, field)
 			case "status":
 				return ec.fieldContext_ChinchiroGameTurn_status(ctx, field)
 			case "turnNumber":
@@ -3055,7 +2953,7 @@ func (ec *executionContext) _ChinchiroGameTurnParticipantResult_participant(ctx 
 	}
 	res := resTmp.(*gqlmodel.ChinchiroGameParticipant)
 	fc.Result = res
-	return ec.marshalNChinchiroGameParticipant2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameParticipant(ctx, field.Selections, res)
+	return ec.marshalNChinchiroGameParticipant2ᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameParticipant(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_ChinchiroGameTurnParticipantResult_participant(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -3241,7 +3139,7 @@ func (ec *executionContext) _ChinchiroGameTurnParticipantResult_combination(ctx 
 	}
 	res := resTmp.(gqlmodel.ChinchiroCombination)
 	fc.Result = res
-	return ec.marshalNChinchiroCombination2chatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroCombination(ctx, field.Selections, res)
+	return ec.marshalNChinchiroCombination2wolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroCombination(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_ChinchiroGameTurnParticipantResult_combination(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -3373,7 +3271,7 @@ func (ec *executionContext) _ChinchiroGameTurnParticipantRoll_turn(ctx context.C
 	}
 	res := resTmp.(*gqlmodel.ChinchiroGameTurn)
 	fc.Result = res
-	return ec.marshalNChinchiroGameTurn2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameTurn(ctx, field.Selections, res)
+	return ec.marshalNChinchiroGameTurn2ᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameTurn(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_ChinchiroGameTurnParticipantRoll_turn(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -3388,6 +3286,8 @@ func (ec *executionContext) fieldContext_ChinchiroGameTurnParticipantRoll_turn(c
 				return ec.fieldContext_ChinchiroGameTurn_id(ctx, field)
 			case "dealer":
 				return ec.fieldContext_ChinchiroGameTurn_dealer(ctx, field)
+			case "nextRoller":
+				return ec.fieldContext_ChinchiroGameTurn_nextRoller(ctx, field)
 			case "status":
 				return ec.fieldContext_ChinchiroGameTurn_status(ctx, field)
 			case "turnNumber":
@@ -3431,7 +3331,7 @@ func (ec *executionContext) _ChinchiroGameTurnParticipantRoll_participant(ctx co
 	}
 	res := resTmp.(*gqlmodel.ChinchiroGameParticipant)
 	fc.Result = res
-	return ec.marshalNChinchiroGameParticipant2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameParticipant(ctx, field.Selections, res)
+	return ec.marshalNChinchiroGameParticipant2ᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameParticipant(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_ChinchiroGameTurnParticipantRoll_participant(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -3749,7 +3649,7 @@ func (ec *executionContext) _ChinchiroRoom_status(ctx context.Context, field gra
 	}
 	res := resTmp.(gqlmodel.ChinchiroRoomStatus)
 	fc.Result = res
-	return ec.marshalNChinchiroRoomStatus2chatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroRoomStatus(ctx, field.Selections, res)
+	return ec.marshalNChinchiroRoomStatus2wolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroRoomStatus(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_ChinchiroRoom_status(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -3793,7 +3693,7 @@ func (ec *executionContext) _ChinchiroRoom_roomMasters(ctx context.Context, fiel
 	}
 	res := resTmp.([]*gqlmodel.ChinchiroRoomMaster)
 	fc.Result = res
-	return ec.marshalNChinchiroRoomMaster2ᚕᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroRoomMasterᚄ(ctx, field.Selections, res)
+	return ec.marshalNChinchiroRoomMaster2ᚕᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroRoomMasterᚄ(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_ChinchiroRoom_roomMasters(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -3843,7 +3743,7 @@ func (ec *executionContext) _ChinchiroRoom_participants(ctx context.Context, fie
 	}
 	res := resTmp.([]*gqlmodel.ChinchiroRoomParticipant)
 	fc.Result = res
-	return ec.marshalNChinchiroRoomParticipant2ᚕᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroRoomParticipantᚄ(ctx, field.Selections, res)
+	return ec.marshalNChinchiroRoomParticipant2ᚕᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroRoomParticipantᚄ(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_ChinchiroRoom_participants(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -3897,7 +3797,7 @@ func (ec *executionContext) _ChinchiroRoom_games(ctx context.Context, field grap
 	}
 	res := resTmp.([]*gqlmodel.ChinchiroGame)
 	fc.Result = res
-	return ec.marshalNChinchiroGame2ᚕᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameᚄ(ctx, field.Selections, res)
+	return ec.marshalNChinchiroGame2ᚕᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameᚄ(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_ChinchiroRoom_games(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -3951,7 +3851,7 @@ func (ec *executionContext) _ChinchiroRoom_settings(ctx context.Context, field g
 	}
 	res := resTmp.(*gqlmodel.ChinchiroRoomSettings)
 	fc.Result = res
-	return ec.marshalNChinchiroRoomSettings2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroRoomSettings(ctx, field.Selections, res)
+	return ec.marshalNChinchiroRoomSettings2ᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroRoomSettings(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_ChinchiroRoom_settings(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -4043,7 +3943,7 @@ func (ec *executionContext) _ChinchiroRoomMaster_player(ctx context.Context, fie
 	}
 	res := resTmp.(*gqlmodel.Player)
 	fc.Result = res
-	return ec.marshalNPlayer2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐPlayer(ctx, field.Selections, res)
+	return ec.marshalNPlayer2ᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐPlayer(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_ChinchiroRoomMaster_player(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -4183,7 +4083,7 @@ func (ec *executionContext) _ChinchiroRoomParticipant_player(ctx context.Context
 	}
 	res := resTmp.(*gqlmodel.Player)
 	fc.Result = res
-	return ec.marshalNPlayer2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐPlayer(ctx, field.Selections, res)
+	return ec.marshalNPlayer2ᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐPlayer(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_ChinchiroRoomParticipant_player(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -4290,50 +4190,6 @@ func (ec *executionContext) fieldContext_ChinchiroRoomSettings_dummy(ctx context
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type String does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _DeleteChinchiroGameParticipantPayload_ok(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.DeleteChinchiroGameParticipantPayload) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_DeleteChinchiroGameParticipantPayload_ok(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.Ok, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(bool)
-	fc.Result = res
-	return ec.marshalNBoolean2bool(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_DeleteChinchiroGameParticipantPayload_ok(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "DeleteChinchiroGameParticipantPayload",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type Boolean does not have child fields")
 		},
 	}
 	return fc, nil
@@ -4505,7 +4361,7 @@ func (ec *executionContext) _Mutation_registerChinchiroRoom(ctx context.Context,
 		if data, ok := tmp.(*gqlmodel.RegisterChinchiroRoomPayload); ok {
 			return data, nil
 		}
-		return nil, fmt.Errorf(`unexpected type %T from directive, should be *chat-role-play/middleware/graph/gqlmodel.RegisterChinchiroRoomPayload`, tmp)
+		return nil, fmt.Errorf(`unexpected type %T from directive, should be *wolfort-games/middleware/graph/gqlmodel.RegisterChinchiroRoomPayload`, tmp)
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -4519,7 +4375,7 @@ func (ec *executionContext) _Mutation_registerChinchiroRoom(ctx context.Context,
 	}
 	res := resTmp.(*gqlmodel.RegisterChinchiroRoomPayload)
 	fc.Result = res
-	return ec.marshalNRegisterChinchiroRoomPayload2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐRegisterChinchiroRoomPayload(ctx, field.Selections, res)
+	return ec.marshalNRegisterChinchiroRoomPayload2ᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐRegisterChinchiroRoomPayload(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Mutation_registerChinchiroRoom(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -4584,7 +4440,7 @@ func (ec *executionContext) _Mutation_registerChinchiroRoomMaster(ctx context.Co
 		if data, ok := tmp.(*gqlmodel.RegisterChinchiroRoomMasterPayload); ok {
 			return data, nil
 		}
-		return nil, fmt.Errorf(`unexpected type %T from directive, should be *chat-role-play/middleware/graph/gqlmodel.RegisterChinchiroRoomMasterPayload`, tmp)
+		return nil, fmt.Errorf(`unexpected type %T from directive, should be *wolfort-games/middleware/graph/gqlmodel.RegisterChinchiroRoomMasterPayload`, tmp)
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -4598,7 +4454,7 @@ func (ec *executionContext) _Mutation_registerChinchiroRoomMaster(ctx context.Co
 	}
 	res := resTmp.(*gqlmodel.RegisterChinchiroRoomMasterPayload)
 	fc.Result = res
-	return ec.marshalNRegisterChinchiroRoomMasterPayload2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐRegisterChinchiroRoomMasterPayload(ctx, field.Selections, res)
+	return ec.marshalNRegisterChinchiroRoomMasterPayload2ᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐRegisterChinchiroRoomMasterPayload(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Mutation_registerChinchiroRoomMaster(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -4663,7 +4519,7 @@ func (ec *executionContext) _Mutation_deleteChinchiroRoomMaster(ctx context.Cont
 		if data, ok := tmp.(*gqlmodel.DeleteChinchiroRoomMasterPayload); ok {
 			return data, nil
 		}
-		return nil, fmt.Errorf(`unexpected type %T from directive, should be *chat-role-play/middleware/graph/gqlmodel.DeleteChinchiroRoomMasterPayload`, tmp)
+		return nil, fmt.Errorf(`unexpected type %T from directive, should be *wolfort-games/middleware/graph/gqlmodel.DeleteChinchiroRoomMasterPayload`, tmp)
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -4677,7 +4533,7 @@ func (ec *executionContext) _Mutation_deleteChinchiroRoomMaster(ctx context.Cont
 	}
 	res := resTmp.(*gqlmodel.DeleteChinchiroRoomMasterPayload)
 	fc.Result = res
-	return ec.marshalNDeleteChinchiroRoomMasterPayload2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐDeleteChinchiroRoomMasterPayload(ctx, field.Selections, res)
+	return ec.marshalNDeleteChinchiroRoomMasterPayload2ᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐDeleteChinchiroRoomMasterPayload(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Mutation_deleteChinchiroRoomMaster(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -4742,7 +4598,7 @@ func (ec *executionContext) _Mutation_updateChinchiroRoomStatus(ctx context.Cont
 		if data, ok := tmp.(*gqlmodel.UpdateChinchiroRoomStatusPayload); ok {
 			return data, nil
 		}
-		return nil, fmt.Errorf(`unexpected type %T from directive, should be *chat-role-play/middleware/graph/gqlmodel.UpdateChinchiroRoomStatusPayload`, tmp)
+		return nil, fmt.Errorf(`unexpected type %T from directive, should be *wolfort-games/middleware/graph/gqlmodel.UpdateChinchiroRoomStatusPayload`, tmp)
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -4756,7 +4612,7 @@ func (ec *executionContext) _Mutation_updateChinchiroRoomStatus(ctx context.Cont
 	}
 	res := resTmp.(*gqlmodel.UpdateChinchiroRoomStatusPayload)
 	fc.Result = res
-	return ec.marshalNUpdateChinchiroRoomStatusPayload2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐUpdateChinchiroRoomStatusPayload(ctx, field.Selections, res)
+	return ec.marshalNUpdateChinchiroRoomStatusPayload2ᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐUpdateChinchiroRoomStatusPayload(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Mutation_updateChinchiroRoomStatus(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -4821,7 +4677,7 @@ func (ec *executionContext) _Mutation_updateChinchiroRoomSettings(ctx context.Co
 		if data, ok := tmp.(*gqlmodel.UpdateChinchiroRoomSettingsPayload); ok {
 			return data, nil
 		}
-		return nil, fmt.Errorf(`unexpected type %T from directive, should be *chat-role-play/middleware/graph/gqlmodel.UpdateChinchiroRoomSettingsPayload`, tmp)
+		return nil, fmt.Errorf(`unexpected type %T from directive, should be *wolfort-games/middleware/graph/gqlmodel.UpdateChinchiroRoomSettingsPayload`, tmp)
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -4835,7 +4691,7 @@ func (ec *executionContext) _Mutation_updateChinchiroRoomSettings(ctx context.Co
 	}
 	res := resTmp.(*gqlmodel.UpdateChinchiroRoomSettingsPayload)
 	fc.Result = res
-	return ec.marshalNUpdateChinchiroRoomSettingsPayload2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐUpdateChinchiroRoomSettingsPayload(ctx, field.Selections, res)
+	return ec.marshalNUpdateChinchiroRoomSettingsPayload2ᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐUpdateChinchiroRoomSettingsPayload(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Mutation_updateChinchiroRoomSettings(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -4900,7 +4756,7 @@ func (ec *executionContext) _Mutation_registerChinchiroRoomParticipant(ctx conte
 		if data, ok := tmp.(*gqlmodel.RegisterChinchiroRoomParticipantPayload); ok {
 			return data, nil
 		}
-		return nil, fmt.Errorf(`unexpected type %T from directive, should be *chat-role-play/middleware/graph/gqlmodel.RegisterChinchiroRoomParticipantPayload`, tmp)
+		return nil, fmt.Errorf(`unexpected type %T from directive, should be *wolfort-games/middleware/graph/gqlmodel.RegisterChinchiroRoomParticipantPayload`, tmp)
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -4914,7 +4770,7 @@ func (ec *executionContext) _Mutation_registerChinchiroRoomParticipant(ctx conte
 	}
 	res := resTmp.(*gqlmodel.RegisterChinchiroRoomParticipantPayload)
 	fc.Result = res
-	return ec.marshalNRegisterChinchiroRoomParticipantPayload2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐRegisterChinchiroRoomParticipantPayload(ctx, field.Selections, res)
+	return ec.marshalNRegisterChinchiroRoomParticipantPayload2ᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐRegisterChinchiroRoomParticipantPayload(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Mutation_registerChinchiroRoomParticipant(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -4979,7 +4835,7 @@ func (ec *executionContext) _Mutation_updateChinchiroRoomParticipant(ctx context
 		if data, ok := tmp.(*gqlmodel.UpdateChinchiroRoomParticipantPayload); ok {
 			return data, nil
 		}
-		return nil, fmt.Errorf(`unexpected type %T from directive, should be *chat-role-play/middleware/graph/gqlmodel.UpdateChinchiroRoomParticipantPayload`, tmp)
+		return nil, fmt.Errorf(`unexpected type %T from directive, should be *wolfort-games/middleware/graph/gqlmodel.UpdateChinchiroRoomParticipantPayload`, tmp)
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -4993,7 +4849,7 @@ func (ec *executionContext) _Mutation_updateChinchiroRoomParticipant(ctx context
 	}
 	res := resTmp.(*gqlmodel.UpdateChinchiroRoomParticipantPayload)
 	fc.Result = res
-	return ec.marshalNUpdateChinchiroRoomParticipantPayload2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐUpdateChinchiroRoomParticipantPayload(ctx, field.Selections, res)
+	return ec.marshalNUpdateChinchiroRoomParticipantPayload2ᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐUpdateChinchiroRoomParticipantPayload(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Mutation_updateChinchiroRoomParticipant(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -5058,7 +4914,7 @@ func (ec *executionContext) _Mutation_leaveChinchiroRoom(ctx context.Context, fi
 		if data, ok := tmp.(*gqlmodel.LeaveChinchiroRoomPayload); ok {
 			return data, nil
 		}
-		return nil, fmt.Errorf(`unexpected type %T from directive, should be *chat-role-play/middleware/graph/gqlmodel.LeaveChinchiroRoomPayload`, tmp)
+		return nil, fmt.Errorf(`unexpected type %T from directive, should be *wolfort-games/middleware/graph/gqlmodel.LeaveChinchiroRoomPayload`, tmp)
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -5072,7 +4928,7 @@ func (ec *executionContext) _Mutation_leaveChinchiroRoom(ctx context.Context, fi
 	}
 	res := resTmp.(*gqlmodel.LeaveChinchiroRoomPayload)
 	fc.Result = res
-	return ec.marshalNLeaveChinchiroRoomPayload2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐLeaveChinchiroRoomPayload(ctx, field.Selections, res)
+	return ec.marshalNLeaveChinchiroRoomPayload2ᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐLeaveChinchiroRoomPayload(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Mutation_leaveChinchiroRoom(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -5137,7 +4993,7 @@ func (ec *executionContext) _Mutation_deleteChinchiroRoomParticipant(ctx context
 		if data, ok := tmp.(*gqlmodel.DeleteChinchiroRoomParticipantPayload); ok {
 			return data, nil
 		}
-		return nil, fmt.Errorf(`unexpected type %T from directive, should be *chat-role-play/middleware/graph/gqlmodel.DeleteChinchiroRoomParticipantPayload`, tmp)
+		return nil, fmt.Errorf(`unexpected type %T from directive, should be *wolfort-games/middleware/graph/gqlmodel.DeleteChinchiroRoomParticipantPayload`, tmp)
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -5151,7 +5007,7 @@ func (ec *executionContext) _Mutation_deleteChinchiroRoomParticipant(ctx context
 	}
 	res := resTmp.(*gqlmodel.DeleteChinchiroRoomParticipantPayload)
 	fc.Result = res
-	return ec.marshalNDeleteChinchiroRoomParticipantPayload2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐDeleteChinchiroRoomParticipantPayload(ctx, field.Selections, res)
+	return ec.marshalNDeleteChinchiroRoomParticipantPayload2ᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐDeleteChinchiroRoomParticipantPayload(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Mutation_deleteChinchiroRoomParticipant(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -5216,7 +5072,7 @@ func (ec *executionContext) _Mutation_registerChinchiroGame(ctx context.Context,
 		if data, ok := tmp.(*gqlmodel.RegisterChinchiroGamePayload); ok {
 			return data, nil
 		}
-		return nil, fmt.Errorf(`unexpected type %T from directive, should be *chat-role-play/middleware/graph/gqlmodel.RegisterChinchiroGamePayload`, tmp)
+		return nil, fmt.Errorf(`unexpected type %T from directive, should be *wolfort-games/middleware/graph/gqlmodel.RegisterChinchiroGamePayload`, tmp)
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -5230,7 +5086,7 @@ func (ec *executionContext) _Mutation_registerChinchiroGame(ctx context.Context,
 	}
 	res := resTmp.(*gqlmodel.RegisterChinchiroGamePayload)
 	fc.Result = res
-	return ec.marshalNRegisterChinchiroGamePayload2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐRegisterChinchiroGamePayload(ctx, field.Selections, res)
+	return ec.marshalNRegisterChinchiroGamePayload2ᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐRegisterChinchiroGamePayload(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Mutation_registerChinchiroGame(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -5255,243 +5111,6 @@ func (ec *executionContext) fieldContext_Mutation_registerChinchiroGame(ctx cont
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
 	if fc.Args, err = ec.field_Mutation_registerChinchiroGame_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
-		ec.Error(ctx, err)
-		return fc, err
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Mutation_registerChinchiroGameParticipant(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Mutation_registerChinchiroGameParticipant(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
-		directive0 := func(rctx context.Context) (interface{}, error) {
-			ctx = rctx // use context from middleware stack in children
-			return ec.resolvers.Mutation().RegisterChinchiroGameParticipant(rctx, fc.Args["input"].(gqlmodel.NewChinchiroGameParticipant))
-		}
-		directive1 := func(ctx context.Context) (interface{}, error) {
-			if ec.directives.IsAuthenticated == nil {
-				return nil, errors.New("directive isAuthenticated is not implemented")
-			}
-			return ec.directives.IsAuthenticated(ctx, nil, directive0)
-		}
-
-		tmp, err := directive1(rctx)
-		if err != nil {
-			return nil, graphql.ErrorOnPath(ctx, err)
-		}
-		if tmp == nil {
-			return nil, nil
-		}
-		if data, ok := tmp.(*gqlmodel.RegisterChinchiroGameParticipantPayload); ok {
-			return data, nil
-		}
-		return nil, fmt.Errorf(`unexpected type %T from directive, should be *chat-role-play/middleware/graph/gqlmodel.RegisterChinchiroGameParticipantPayload`, tmp)
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(*gqlmodel.RegisterChinchiroGameParticipantPayload)
-	fc.Result = res
-	return ec.marshalNRegisterChinchiroGameParticipantPayload2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐRegisterChinchiroGameParticipantPayload(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_Mutation_registerChinchiroGameParticipant(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Mutation",
-		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			switch field.Name {
-			case "chinchiroGameParticipant":
-				return ec.fieldContext_RegisterChinchiroGameParticipantPayload_chinchiroGameParticipant(ctx, field)
-			}
-			return nil, fmt.Errorf("no field named %q was found under type RegisterChinchiroGameParticipantPayload", field.Name)
-		},
-	}
-	defer func() {
-		if r := recover(); r != nil {
-			err = ec.Recover(ctx, r)
-			ec.Error(ctx, err)
-		}
-	}()
-	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Mutation_registerChinchiroGameParticipant_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
-		ec.Error(ctx, err)
-		return fc, err
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Mutation_deleteChinchiroGameParticipant(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Mutation_deleteChinchiroGameParticipant(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
-		directive0 := func(rctx context.Context) (interface{}, error) {
-			ctx = rctx // use context from middleware stack in children
-			return ec.resolvers.Mutation().DeleteChinchiroGameParticipant(rctx, fc.Args["input"].(gqlmodel.DeleteChinchiroGameParticipant))
-		}
-		directive1 := func(ctx context.Context) (interface{}, error) {
-			if ec.directives.IsAuthenticated == nil {
-				return nil, errors.New("directive isAuthenticated is not implemented")
-			}
-			return ec.directives.IsAuthenticated(ctx, nil, directive0)
-		}
-
-		tmp, err := directive1(rctx)
-		if err != nil {
-			return nil, graphql.ErrorOnPath(ctx, err)
-		}
-		if tmp == nil {
-			return nil, nil
-		}
-		if data, ok := tmp.(*gqlmodel.DeleteChinchiroGameParticipantPayload); ok {
-			return data, nil
-		}
-		return nil, fmt.Errorf(`unexpected type %T from directive, should be *chat-role-play/middleware/graph/gqlmodel.DeleteChinchiroGameParticipantPayload`, tmp)
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(*gqlmodel.DeleteChinchiroGameParticipantPayload)
-	fc.Result = res
-	return ec.marshalNDeleteChinchiroGameParticipantPayload2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐDeleteChinchiroGameParticipantPayload(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_Mutation_deleteChinchiroGameParticipant(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Mutation",
-		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			switch field.Name {
-			case "ok":
-				return ec.fieldContext_DeleteChinchiroGameParticipantPayload_ok(ctx, field)
-			}
-			return nil, fmt.Errorf("no field named %q was found under type DeleteChinchiroGameParticipantPayload", field.Name)
-		},
-	}
-	defer func() {
-		if r := recover(); r != nil {
-			err = ec.Recover(ctx, r)
-			ec.Error(ctx, err)
-		}
-	}()
-	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Mutation_deleteChinchiroGameParticipant_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
-		ec.Error(ctx, err)
-		return fc, err
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Mutation_registerChinchiroGameTurn(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Mutation_registerChinchiroGameTurn(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
-		directive0 := func(rctx context.Context) (interface{}, error) {
-			ctx = rctx // use context from middleware stack in children
-			return ec.resolvers.Mutation().RegisterChinchiroGameTurn(rctx, fc.Args["input"].(gqlmodel.NewChinchiroGameTurn))
-		}
-		directive1 := func(ctx context.Context) (interface{}, error) {
-			if ec.directives.IsAuthenticated == nil {
-				return nil, errors.New("directive isAuthenticated is not implemented")
-			}
-			return ec.directives.IsAuthenticated(ctx, nil, directive0)
-		}
-
-		tmp, err := directive1(rctx)
-		if err != nil {
-			return nil, graphql.ErrorOnPath(ctx, err)
-		}
-		if tmp == nil {
-			return nil, nil
-		}
-		if data, ok := tmp.(*gqlmodel.RegisterChinchiroGameTurnPayload); ok {
-			return data, nil
-		}
-		return nil, fmt.Errorf(`unexpected type %T from directive, should be *chat-role-play/middleware/graph/gqlmodel.RegisterChinchiroGameTurnPayload`, tmp)
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(*gqlmodel.RegisterChinchiroGameTurnPayload)
-	fc.Result = res
-	return ec.marshalNRegisterChinchiroGameTurnPayload2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐRegisterChinchiroGameTurnPayload(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_Mutation_registerChinchiroGameTurn(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Mutation",
-		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			switch field.Name {
-			case "chinchiroGameTurn":
-				return ec.fieldContext_RegisterChinchiroGameTurnPayload_chinchiroGameTurn(ctx, field)
-			}
-			return nil, fmt.Errorf("no field named %q was found under type RegisterChinchiroGameTurnPayload", field.Name)
-		},
-	}
-	defer func() {
-		if r := recover(); r != nil {
-			err = ec.Recover(ctx, r)
-			ec.Error(ctx, err)
-		}
-	}()
-	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Mutation_registerChinchiroGameTurn_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -5532,7 +5151,7 @@ func (ec *executionContext) _Mutation_updateChinchiroGameTurnStatus(ctx context.
 		if data, ok := tmp.(*gqlmodel.UpdateChinchiroGameTurnStatusPayload); ok {
 			return data, nil
 		}
-		return nil, fmt.Errorf(`unexpected type %T from directive, should be *chat-role-play/middleware/graph/gqlmodel.UpdateChinchiroGameTurnStatusPayload`, tmp)
+		return nil, fmt.Errorf(`unexpected type %T from directive, should be *wolfort-games/middleware/graph/gqlmodel.UpdateChinchiroGameTurnStatusPayload`, tmp)
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -5546,7 +5165,7 @@ func (ec *executionContext) _Mutation_updateChinchiroGameTurnStatus(ctx context.
 	}
 	res := resTmp.(*gqlmodel.UpdateChinchiroGameTurnStatusPayload)
 	fc.Result = res
-	return ec.marshalNUpdateChinchiroGameTurnStatusPayload2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐUpdateChinchiroGameTurnStatusPayload(ctx, field.Selections, res)
+	return ec.marshalNUpdateChinchiroGameTurnStatusPayload2ᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐUpdateChinchiroGameTurnStatusPayload(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Mutation_updateChinchiroGameTurnStatus(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -5611,7 +5230,7 @@ func (ec *executionContext) _Mutation_betChinchiroGameTurnParticipant(ctx contex
 		if data, ok := tmp.(*gqlmodel.BetChinchiroGameTurnParticipantPayload); ok {
 			return data, nil
 		}
-		return nil, fmt.Errorf(`unexpected type %T from directive, should be *chat-role-play/middleware/graph/gqlmodel.BetChinchiroGameTurnParticipantPayload`, tmp)
+		return nil, fmt.Errorf(`unexpected type %T from directive, should be *wolfort-games/middleware/graph/gqlmodel.BetChinchiroGameTurnParticipantPayload`, tmp)
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -5625,7 +5244,7 @@ func (ec *executionContext) _Mutation_betChinchiroGameTurnParticipant(ctx contex
 	}
 	res := resTmp.(*gqlmodel.BetChinchiroGameTurnParticipantPayload)
 	fc.Result = res
-	return ec.marshalNBetChinchiroGameTurnParticipantPayload2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐBetChinchiroGameTurnParticipantPayload(ctx, field.Selections, res)
+	return ec.marshalNBetChinchiroGameTurnParticipantPayload2ᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐBetChinchiroGameTurnParticipantPayload(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Mutation_betChinchiroGameTurnParticipant(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -5690,7 +5309,7 @@ func (ec *executionContext) _Mutation_rollChinchiroGameTurnParticipant(ctx conte
 		if data, ok := tmp.(*gqlmodel.RollChinchiroGameTurnParticipantPayload); ok {
 			return data, nil
 		}
-		return nil, fmt.Errorf(`unexpected type %T from directive, should be *chat-role-play/middleware/graph/gqlmodel.RollChinchiroGameTurnParticipantPayload`, tmp)
+		return nil, fmt.Errorf(`unexpected type %T from directive, should be *wolfort-games/middleware/graph/gqlmodel.RollChinchiroGameTurnParticipantPayload`, tmp)
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -5704,7 +5323,7 @@ func (ec *executionContext) _Mutation_rollChinchiroGameTurnParticipant(ctx conte
 	}
 	res := resTmp.(*gqlmodel.RollChinchiroGameTurnParticipantPayload)
 	fc.Result = res
-	return ec.marshalNRollChinchiroGameTurnParticipantPayload2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐRollChinchiroGameTurnParticipantPayload(ctx, field.Selections, res)
+	return ec.marshalNRollChinchiroGameTurnParticipantPayload2ᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐRollChinchiroGameTurnParticipantPayload(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Mutation_rollChinchiroGameTurnParticipant(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -5895,7 +5514,7 @@ func (ec *executionContext) _Query_players(ctx context.Context, field graphql.Co
 	}
 	res := resTmp.([]*gqlmodel.Player)
 	fc.Result = res
-	return ec.marshalNPlayer2ᚕᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐPlayerᚄ(ctx, field.Selections, res)
+	return ec.marshalNPlayer2ᚕᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐPlayerᚄ(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Query_players(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -5955,7 +5574,7 @@ func (ec *executionContext) _Query_player(ctx context.Context, field graphql.Col
 	}
 	res := resTmp.(*gqlmodel.Player)
 	fc.Result = res
-	return ec.marshalOPlayer2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐPlayer(ctx, field.Selections, res)
+	return ec.marshalOPlayer2ᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐPlayer(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Query_player(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -6015,7 +5634,7 @@ func (ec *executionContext) _Query_myPlayer(ctx context.Context, field graphql.C
 	}
 	res := resTmp.(*gqlmodel.Player)
 	fc.Result = res
-	return ec.marshalOPlayer2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐPlayer(ctx, field.Selections, res)
+	return ec.marshalOPlayer2ᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐPlayer(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Query_myPlayer(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -6067,7 +5686,7 @@ func (ec *executionContext) _Query_chinchiroRooms(ctx context.Context, field gra
 	}
 	res := resTmp.([]*gqlmodel.SimpleChinchiroRoom)
 	fc.Result = res
-	return ec.marshalNSimpleChinchiroRoom2ᚕᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐSimpleChinchiroRoomᚄ(ctx, field.Selections, res)
+	return ec.marshalNSimpleChinchiroRoom2ᚕᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐSimpleChinchiroRoomᚄ(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Query_chinchiroRooms(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -6131,7 +5750,7 @@ func (ec *executionContext) _Query_chinchiroRoom(ctx context.Context, field grap
 	}
 	res := resTmp.(*gqlmodel.ChinchiroRoom)
 	fc.Result = res
-	return ec.marshalOChinchiroRoom2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroRoom(ctx, field.Selections, res)
+	return ec.marshalOChinchiroRoom2ᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroRoom(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Query_chinchiroRoom(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -6199,7 +5818,7 @@ func (ec *executionContext) _Query_myChinchiroRoomParticipant(ctx context.Contex
 	}
 	res := resTmp.(*gqlmodel.ChinchiroRoomParticipant)
 	fc.Result = res
-	return ec.marshalOChinchiroRoomParticipant2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroRoomParticipant(ctx, field.Selections, res)
+	return ec.marshalOChinchiroRoomParticipant2ᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroRoomParticipant(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Query_myChinchiroRoomParticipant(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -6264,7 +5883,7 @@ func (ec *executionContext) _Query_chinchiroGames(ctx context.Context, field gra
 	}
 	res := resTmp.([]*gqlmodel.ChinchiroGame)
 	fc.Result = res
-	return ec.marshalNChinchiroGame2ᚕᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameᚄ(ctx, field.Selections, res)
+	return ec.marshalNChinchiroGame2ᚕᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameᚄ(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Query_chinchiroGames(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -6326,7 +5945,7 @@ func (ec *executionContext) _Query_chinchiroGame(ctx context.Context, field grap
 	}
 	res := resTmp.(*gqlmodel.ChinchiroGame)
 	fc.Result = res
-	return ec.marshalOChinchiroGame2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGame(ctx, field.Selections, res)
+	return ec.marshalOChinchiroGame2ᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGame(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Query_chinchiroGame(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -6388,7 +6007,7 @@ func (ec *executionContext) _Query_myChinchiroGameParticipant(ctx context.Contex
 	}
 	res := resTmp.(*gqlmodel.ChinchiroGameParticipant)
 	fc.Result = res
-	return ec.marshalOChinchiroGameParticipant2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameParticipant(ctx, field.Selections, res)
+	return ec.marshalOChinchiroGameParticipant2ᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameParticipant(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Query_myChinchiroGameParticipant(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -6453,7 +6072,7 @@ func (ec *executionContext) _Query_chinchiroGameTurns(ctx context.Context, field
 	}
 	res := resTmp.([]*gqlmodel.ChinchiroGameTurn)
 	fc.Result = res
-	return ec.marshalNChinchiroGameTurn2ᚕᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameTurnᚄ(ctx, field.Selections, res)
+	return ec.marshalNChinchiroGameTurn2ᚕᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameTurnᚄ(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Query_chinchiroGameTurns(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -6468,6 +6087,8 @@ func (ec *executionContext) fieldContext_Query_chinchiroGameTurns(ctx context.Co
 				return ec.fieldContext_ChinchiroGameTurn_id(ctx, field)
 			case "dealer":
 				return ec.fieldContext_ChinchiroGameTurn_dealer(ctx, field)
+			case "nextRoller":
+				return ec.fieldContext_ChinchiroGameTurn_nextRoller(ctx, field)
 			case "status":
 				return ec.fieldContext_ChinchiroGameTurn_status(ctx, field)
 			case "turnNumber":
@@ -6519,7 +6140,7 @@ func (ec *executionContext) _Query_chinchiroGameTurn(ctx context.Context, field 
 	}
 	res := resTmp.(*gqlmodel.ChinchiroGameTurn)
 	fc.Result = res
-	return ec.marshalOChinchiroGameTurn2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameTurn(ctx, field.Selections, res)
+	return ec.marshalOChinchiroGameTurn2ᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameTurn(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Query_chinchiroGameTurn(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -6534,6 +6155,8 @@ func (ec *executionContext) fieldContext_Query_chinchiroGameTurn(ctx context.Con
 				return ec.fieldContext_ChinchiroGameTurn_id(ctx, field)
 			case "dealer":
 				return ec.fieldContext_ChinchiroGameTurn_dealer(ctx, field)
+			case "nextRoller":
+				return ec.fieldContext_ChinchiroGameTurn_nextRoller(ctx, field)
 			case "status":
 				return ec.fieldContext_ChinchiroGameTurn_status(ctx, field)
 			case "turnNumber":
@@ -6588,7 +6211,7 @@ func (ec *executionContext) _Query_chinchiroGameTurnRolls(ctx context.Context, f
 	}
 	res := resTmp.([]*gqlmodel.ChinchiroGameTurnParticipantRoll)
 	fc.Result = res
-	return ec.marshalNChinchiroGameTurnParticipantRoll2ᚕᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameTurnParticipantRollᚄ(ctx, field.Selections, res)
+	return ec.marshalNChinchiroGameTurnParticipantRoll2ᚕᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameTurnParticipantRollᚄ(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Query_chinchiroGameTurnRolls(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -6659,7 +6282,7 @@ func (ec *executionContext) _Query_chinchiroGameTurnParticipantResults(ctx conte
 	}
 	res := resTmp.([]*gqlmodel.ChinchiroGameTurnParticipantResult)
 	fc.Result = res
-	return ec.marshalNChinchiroGameTurnParticipantResult2ᚕᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameTurnParticipantResultᚄ(ctx, field.Selections, res)
+	return ec.marshalNChinchiroGameTurnParticipantResult2ᚕᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameTurnParticipantResultᚄ(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Query_chinchiroGameTurnParticipantResults(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -6833,60 +6456,6 @@ func (ec *executionContext) fieldContext_Query___schema(ctx context.Context, fie
 	return fc, nil
 }
 
-func (ec *executionContext) _RegisterChinchiroGameParticipantPayload_chinchiroGameParticipant(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.RegisterChinchiroGameParticipantPayload) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_RegisterChinchiroGameParticipantPayload_chinchiroGameParticipant(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.ChinchiroGameParticipant, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(*gqlmodel.ChinchiroGameParticipant)
-	fc.Result = res
-	return ec.marshalNChinchiroGameParticipant2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameParticipant(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_RegisterChinchiroGameParticipantPayload_chinchiroGameParticipant(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "RegisterChinchiroGameParticipantPayload",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			switch field.Name {
-			case "id":
-				return ec.fieldContext_ChinchiroGameParticipant_id(ctx, field)
-			case "roomParticipant":
-				return ec.fieldContext_ChinchiroGameParticipant_roomParticipant(ctx, field)
-			case "balance":
-				return ec.fieldContext_ChinchiroGameParticipant_balance(ctx, field)
-			case "turnOrder":
-				return ec.fieldContext_ChinchiroGameParticipant_turnOrder(ctx, field)
-			}
-			return nil, fmt.Errorf("no field named %q was found under type ChinchiroGameParticipant", field.Name)
-		},
-	}
-	return fc, nil
-}
-
 func (ec *executionContext) _RegisterChinchiroGamePayload_chinchiroGame(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.RegisterChinchiroGamePayload) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_RegisterChinchiroGamePayload_chinchiroGame(ctx, field)
 	if err != nil {
@@ -6915,7 +6484,7 @@ func (ec *executionContext) _RegisterChinchiroGamePayload_chinchiroGame(ctx cont
 	}
 	res := resTmp.(*gqlmodel.ChinchiroGame)
 	fc.Result = res
-	return ec.marshalNChinchiroGame2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGame(ctx, field.Selections, res)
+	return ec.marshalNChinchiroGame2ᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGame(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_RegisterChinchiroGamePayload_chinchiroGame(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -6936,64 +6505,6 @@ func (ec *executionContext) fieldContext_RegisterChinchiroGamePayload_chinchiroG
 				return ec.fieldContext_ChinchiroGame_turns(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type ChinchiroGame", field.Name)
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _RegisterChinchiroGameTurnPayload_chinchiroGameTurn(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.RegisterChinchiroGameTurnPayload) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_RegisterChinchiroGameTurnPayload_chinchiroGameTurn(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.ChinchiroGameTurn, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(*gqlmodel.ChinchiroGameTurn)
-	fc.Result = res
-	return ec.marshalNChinchiroGameTurn2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameTurn(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_RegisterChinchiroGameTurnPayload_chinchiroGameTurn(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "RegisterChinchiroGameTurnPayload",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			switch field.Name {
-			case "id":
-				return ec.fieldContext_ChinchiroGameTurn_id(ctx, field)
-			case "dealer":
-				return ec.fieldContext_ChinchiroGameTurn_dealer(ctx, field)
-			case "status":
-				return ec.fieldContext_ChinchiroGameTurn_status(ctx, field)
-			case "turnNumber":
-				return ec.fieldContext_ChinchiroGameTurn_turnNumber(ctx, field)
-			case "rolls":
-				return ec.fieldContext_ChinchiroGameTurn_rolls(ctx, field)
-			case "results":
-				return ec.fieldContext_ChinchiroGameTurn_results(ctx, field)
-			}
-			return nil, fmt.Errorf("no field named %q was found under type ChinchiroGameTurn", field.Name)
 		},
 	}
 	return fc, nil
@@ -7027,7 +6538,7 @@ func (ec *executionContext) _RegisterChinchiroRoomMasterPayload_chinchiroRoomMas
 	}
 	res := resTmp.(*gqlmodel.ChinchiroRoomMaster)
 	fc.Result = res
-	return ec.marshalNChinchiroRoomMaster2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroRoomMaster(ctx, field.Selections, res)
+	return ec.marshalNChinchiroRoomMaster2ᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroRoomMaster(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_RegisterChinchiroRoomMasterPayload_chinchiroRoomMaster(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -7077,7 +6588,7 @@ func (ec *executionContext) _RegisterChinchiroRoomParticipantPayload_chinchiroRo
 	}
 	res := resTmp.(*gqlmodel.ChinchiroRoomParticipant)
 	fc.Result = res
-	return ec.marshalNChinchiroRoomParticipant2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroRoomParticipant(ctx, field.Selections, res)
+	return ec.marshalNChinchiroRoomParticipant2ᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroRoomParticipant(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_RegisterChinchiroRoomParticipantPayload_chinchiroRoomParticipant(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -7131,7 +6642,7 @@ func (ec *executionContext) _RegisterChinchiroRoomPayload_chinchiroRoom(ctx cont
 	}
 	res := resTmp.(*gqlmodel.ChinchiroRoom)
 	fc.Result = res
-	return ec.marshalNChinchiroRoom2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroRoom(ctx, field.Selections, res)
+	return ec.marshalNChinchiroRoom2ᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroRoom(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_RegisterChinchiroRoomPayload_chinchiroRoom(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -7323,7 +6834,7 @@ func (ec *executionContext) _SimpleChinchiroRoom_status(ctx context.Context, fie
 	}
 	res := resTmp.(gqlmodel.ChinchiroRoomStatus)
 	fc.Result = res
-	return ec.marshalNChinchiroRoomStatus2chatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroRoomStatus(ctx, field.Selections, res)
+	return ec.marshalNChinchiroRoomStatus2wolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroRoomStatus(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_SimpleChinchiroRoom_status(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -7411,7 +6922,7 @@ func (ec *executionContext) _SimpleChinchiroRoom_settings(ctx context.Context, f
 	}
 	res := resTmp.(*gqlmodel.ChinchiroRoomSettings)
 	fc.Result = res
-	return ec.marshalNChinchiroRoomSettings2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroRoomSettings(ctx, field.Selections, res)
+	return ec.marshalNChinchiroRoomSettings2ᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroRoomSettings(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_SimpleChinchiroRoom_settings(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -7426,50 +6937,6 @@ func (ec *executionContext) fieldContext_SimpleChinchiroRoom_settings(ctx contex
 				return ec.fieldContext_ChinchiroRoomSettings_dummy(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type ChinchiroRoomSettings", field.Name)
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _UpdateChinchiroGameParticipantPayload_ok(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.UpdateChinchiroGameParticipantPayload) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_UpdateChinchiroGameParticipantPayload_ok(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.Ok, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(bool)
-	fc.Result = res
-	return ec.marshalNBoolean2bool(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_UpdateChinchiroGameParticipantPayload_ok(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "UpdateChinchiroGameParticipantPayload",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type Boolean does not have child fields")
 		},
 	}
 	return fc, nil
@@ -9498,7 +8965,7 @@ func (ec *executionContext) unmarshalInputChinchiroGameTurnParticipantResultsQue
 			var err error
 
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("paging"))
-			data, err := ec.unmarshalOPageableQuery2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐPageableQuery(ctx, v)
+			data, err := ec.unmarshalOPageableQuery2ᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐPageableQuery(ctx, v)
 			if err != nil {
 				return it, err
 			}
@@ -9545,7 +9012,7 @@ func (ec *executionContext) unmarshalInputChinchiroGameTurnRollsQuery(ctx contex
 			var err error
 
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("paging"))
-			data, err := ec.unmarshalOPageableQuery2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐPageableQuery(ctx, v)
+			data, err := ec.unmarshalOPageableQuery2ᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐPageableQuery(ctx, v)
 			if err != nil {
 				return it, err
 			}
@@ -9592,7 +9059,7 @@ func (ec *executionContext) unmarshalInputChinchiroGameTurnsQuery(ctx context.Co
 			var err error
 
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("statuses"))
-			data, err := ec.unmarshalOChinchiroGameTurnStatus2ᚕchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameTurnStatusᚄ(ctx, v)
+			data, err := ec.unmarshalOChinchiroGameTurnStatus2ᚕwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameTurnStatusᚄ(ctx, v)
 			if err != nil {
 				return it, err
 			}
@@ -9601,7 +9068,7 @@ func (ec *executionContext) unmarshalInputChinchiroGameTurnsQuery(ctx context.Co
 			var err error
 
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("paging"))
-			data, err := ec.unmarshalOPageableQuery2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐPageableQuery(ctx, v)
+			data, err := ec.unmarshalOPageableQuery2ᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐPageableQuery(ctx, v)
 			if err != nil {
 				return it, err
 			}
@@ -9657,7 +9124,7 @@ func (ec *executionContext) unmarshalInputChinchiroGamesQuery(ctx context.Contex
 			var err error
 
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("statuses"))
-			data, err := ec.unmarshalOChinchiroGameStatus2ᚕchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameStatusᚄ(ctx, v)
+			data, err := ec.unmarshalOChinchiroGameStatus2ᚕwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameStatusᚄ(ctx, v)
 			if err != nil {
 				return it, err
 			}
@@ -9666,7 +9133,7 @@ func (ec *executionContext) unmarshalInputChinchiroGamesQuery(ctx context.Contex
 			var err error
 
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("paging"))
-			data, err := ec.unmarshalOPageableQuery2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐPageableQuery(ctx, v)
+			data, err := ec.unmarshalOPageableQuery2ᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐPageableQuery(ctx, v)
 			if err != nil {
 				return it, err
 			}
@@ -9713,7 +9180,7 @@ func (ec *executionContext) unmarshalInputChinchiroRoomsQuery(ctx context.Contex
 			var err error
 
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("statuses"))
-			data, err := ec.unmarshalOChinchiroRoomStatus2ᚕchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroRoomStatusᚄ(ctx, v)
+			data, err := ec.unmarshalOChinchiroRoomStatus2ᚕwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroRoomStatusᚄ(ctx, v)
 			if err != nil {
 				return it, err
 			}
@@ -9722,49 +9189,11 @@ func (ec *executionContext) unmarshalInputChinchiroRoomsQuery(ctx context.Contex
 			var err error
 
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("paging"))
-			data, err := ec.unmarshalOPageableQuery2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐPageableQuery(ctx, v)
+			data, err := ec.unmarshalOPageableQuery2ᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐPageableQuery(ctx, v)
 			if err != nil {
 				return it, err
 			}
 			it.Paging = data
-		}
-	}
-
-	return it, nil
-}
-
-func (ec *executionContext) unmarshalInputDeleteChinchiroGameParticipant(ctx context.Context, obj interface{}) (gqlmodel.DeleteChinchiroGameParticipant, error) {
-	var it gqlmodel.DeleteChinchiroGameParticipant
-	asMap := map[string]interface{}{}
-	for k, v := range obj.(map[string]interface{}) {
-		asMap[k] = v
-	}
-
-	fieldsInOrder := [...]string{"gameId", "participantId"}
-	for _, k := range fieldsInOrder {
-		v, ok := asMap[k]
-		if !ok {
-			continue
-		}
-		switch k {
-		case "gameId":
-			var err error
-
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("gameId"))
-			data, err := ec.unmarshalNID2string(ctx, v)
-			if err != nil {
-				return it, err
-			}
-			it.GameID = data
-		case "participantId":
-			var err error
-
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("participantId"))
-			data, err := ec.unmarshalNID2string(ctx, v)
-			if err != nil {
-				return it, err
-			}
-			it.ParticipantID = data
 		}
 	}
 
@@ -9899,64 +9328,6 @@ func (ec *executionContext) unmarshalInputNewChinchiroGame(ctx context.Context, 
 				return it, err
 			}
 			it.RoomID = data
-		}
-	}
-
-	return it, nil
-}
-
-func (ec *executionContext) unmarshalInputNewChinchiroGameParticipant(ctx context.Context, obj interface{}) (gqlmodel.NewChinchiroGameParticipant, error) {
-	var it gqlmodel.NewChinchiroGameParticipant
-	asMap := map[string]interface{}{}
-	for k, v := range obj.(map[string]interface{}) {
-		asMap[k] = v
-	}
-
-	fieldsInOrder := [...]string{"gameId"}
-	for _, k := range fieldsInOrder {
-		v, ok := asMap[k]
-		if !ok {
-			continue
-		}
-		switch k {
-		case "gameId":
-			var err error
-
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("gameId"))
-			data, err := ec.unmarshalNID2string(ctx, v)
-			if err != nil {
-				return it, err
-			}
-			it.GameID = data
-		}
-	}
-
-	return it, nil
-}
-
-func (ec *executionContext) unmarshalInputNewChinchiroGameTurn(ctx context.Context, obj interface{}) (gqlmodel.NewChinchiroGameTurn, error) {
-	var it gqlmodel.NewChinchiroGameTurn
-	asMap := map[string]interface{}{}
-	for k, v := range obj.(map[string]interface{}) {
-		asMap[k] = v
-	}
-
-	fieldsInOrder := [...]string{"gameId"}
-	for _, k := range fieldsInOrder {
-		v, ok := asMap[k]
-		if !ok {
-			continue
-		}
-		switch k {
-		case "gameId":
-			var err error
-
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("gameId"))
-			data, err := ec.unmarshalNID2string(ctx, v)
-			if err != nil {
-				return it, err
-			}
-			it.GameID = data
 		}
 	}
 
@@ -10169,7 +9540,7 @@ func (ec *executionContext) unmarshalInputPlayersQuery(ctx context.Context, obj 
 			var err error
 
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("paging"))
-			data, err := ec.unmarshalOPageableQuery2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐPageableQuery(ctx, v)
+			data, err := ec.unmarshalOPageableQuery2ᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐPageableQuery(ctx, v)
 			if err != nil {
 				return it, err
 			}
@@ -10236,7 +9607,7 @@ func (ec *executionContext) unmarshalInputUpdateChinchiroGameTurnStatus(ctx cont
 			var err error
 
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("status"))
-			data, err := ec.unmarshalNChinchiroGameTurnStatus2chatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameTurnStatus(ctx, v)
+			data, err := ec.unmarshalNChinchiroGameTurnStatus2wolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameTurnStatus(ctx, v)
 			if err != nil {
 				return it, err
 			}
@@ -10359,7 +9730,7 @@ func (ec *executionContext) unmarshalInputUpdateChinchiroRoomStatus(ctx context.
 			var err error
 
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("status"))
-			data, err := ec.unmarshalNChinchiroRoomStatus2chatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroRoomStatus(ctx, v)
+			data, err := ec.unmarshalNChinchiroRoomStatus2wolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroRoomStatus(ctx, v)
 			if err != nil {
 				return it, err
 			}
@@ -10440,23 +9811,85 @@ func (ec *executionContext) _ChinchiroGame(ctx context.Context, sel ast.Selectio
 		case "id":
 			out.Values[i] = ec._ChinchiroGame_id(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "status":
 			out.Values[i] = ec._ChinchiroGame_status(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "participants":
-			out.Values[i] = ec._ChinchiroGame_participants(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._ChinchiroGame_participants(ctx, field, obj)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
 			}
+
+			if field.Deferrable != nil {
+				dfs, ok := deferred[field.Deferrable.Label]
+				di := 0
+				if ok {
+					dfs.AddField(field)
+					di = len(dfs.Values) - 1
+				} else {
+					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
+					deferred[field.Deferrable.Label] = dfs
+				}
+				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, dfs)
+				})
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
 		case "turns":
-			out.Values[i] = ec._ChinchiroGame_turns(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._ChinchiroGame_turns(ctx, field, obj)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
 			}
+
+			if field.Deferrable != nil {
+				dfs, ok := deferred[field.Deferrable.Label]
+				di := 0
+				if ok {
+					dfs.AddField(field)
+					di = len(dfs.Values) - 1
+				} else {
+					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
+					deferred[field.Deferrable.Label] = dfs
+				}
+				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, dfs)
+				})
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -10594,6 +10027,39 @@ func (ec *executionContext) _ChinchiroGameTurn(ctx context.Context, sel ast.Sele
 				if res == graphql.Null {
 					atomic.AddUint32(&fs.Invalids, 1)
 				}
+				return res
+			}
+
+			if field.Deferrable != nil {
+				dfs, ok := deferred[field.Deferrable.Label]
+				di := 0
+				if ok {
+					dfs.AddField(field)
+					di = len(dfs.Values) - 1
+				} else {
+					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
+					deferred[field.Deferrable.Label] = dfs
+				}
+				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, dfs)
+				})
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+		case "nextRoller":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._ChinchiroGameTurn_nextRoller(ctx, field, obj)
 				return res
 			}
 
@@ -11350,45 +10816,6 @@ func (ec *executionContext) _ChinchiroRoomSettings(ctx context.Context, sel ast.
 	return out
 }
 
-var deleteChinchiroGameParticipantPayloadImplementors = []string{"DeleteChinchiroGameParticipantPayload"}
-
-func (ec *executionContext) _DeleteChinchiroGameParticipantPayload(ctx context.Context, sel ast.SelectionSet, obj *gqlmodel.DeleteChinchiroGameParticipantPayload) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, deleteChinchiroGameParticipantPayloadImplementors)
-
-	out := graphql.NewFieldSet(fields)
-	deferred := make(map[string]*graphql.FieldSet)
-	for i, field := range fields {
-		switch field.Name {
-		case "__typename":
-			out.Values[i] = graphql.MarshalString("DeleteChinchiroGameParticipantPayload")
-		case "ok":
-			out.Values[i] = ec._DeleteChinchiroGameParticipantPayload_ok(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		default:
-			panic("unknown field " + strconv.Quote(field.Name))
-		}
-	}
-	out.Dispatch(ctx)
-	if out.Invalids > 0 {
-		return graphql.Null
-	}
-
-	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
-
-	for label, dfs := range deferred {
-		ec.processDeferredGroup(graphql.DeferredGroup{
-			Label:    label,
-			Path:     graphql.GetPath(ctx),
-			FieldSet: dfs,
-			Context:  ctx,
-		})
-	}
-
-	return out
-}
-
 var deleteChinchiroRoomMasterPayloadImplementors = []string{"DeleteChinchiroRoomMasterPayload"}
 
 func (ec *executionContext) _DeleteChinchiroRoomMasterPayload(ctx context.Context, sel ast.SelectionSet, obj *gqlmodel.DeleteChinchiroRoomMasterPayload) graphql.Marshaler {
@@ -11591,27 +11018,6 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 		case "registerChinchiroGame":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_registerChinchiroGame(ctx, field)
-			})
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "registerChinchiroGameParticipant":
-			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
-				return ec._Mutation_registerChinchiroGameParticipant(ctx, field)
-			})
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "deleteChinchiroGameParticipant":
-			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
-				return ec._Mutation_deleteChinchiroGameParticipant(ctx, field)
-			})
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "registerChinchiroGameTurn":
-			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
-				return ec._Mutation_registerChinchiroGameTurn(ctx, field)
 			})
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
@@ -12024,45 +11430,6 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 	return out
 }
 
-var registerChinchiroGameParticipantPayloadImplementors = []string{"RegisterChinchiroGameParticipantPayload"}
-
-func (ec *executionContext) _RegisterChinchiroGameParticipantPayload(ctx context.Context, sel ast.SelectionSet, obj *gqlmodel.RegisterChinchiroGameParticipantPayload) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, registerChinchiroGameParticipantPayloadImplementors)
-
-	out := graphql.NewFieldSet(fields)
-	deferred := make(map[string]*graphql.FieldSet)
-	for i, field := range fields {
-		switch field.Name {
-		case "__typename":
-			out.Values[i] = graphql.MarshalString("RegisterChinchiroGameParticipantPayload")
-		case "chinchiroGameParticipant":
-			out.Values[i] = ec._RegisterChinchiroGameParticipantPayload_chinchiroGameParticipant(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		default:
-			panic("unknown field " + strconv.Quote(field.Name))
-		}
-	}
-	out.Dispatch(ctx)
-	if out.Invalids > 0 {
-		return graphql.Null
-	}
-
-	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
-
-	for label, dfs := range deferred {
-		ec.processDeferredGroup(graphql.DeferredGroup{
-			Label:    label,
-			Path:     graphql.GetPath(ctx),
-			FieldSet: dfs,
-			Context:  ctx,
-		})
-	}
-
-	return out
-}
-
 var registerChinchiroGamePayloadImplementors = []string{"RegisterChinchiroGamePayload"}
 
 func (ec *executionContext) _RegisterChinchiroGamePayload(ctx context.Context, sel ast.SelectionSet, obj *gqlmodel.RegisterChinchiroGamePayload) graphql.Marshaler {
@@ -12076,45 +11443,6 @@ func (ec *executionContext) _RegisterChinchiroGamePayload(ctx context.Context, s
 			out.Values[i] = graphql.MarshalString("RegisterChinchiroGamePayload")
 		case "chinchiroGame":
 			out.Values[i] = ec._RegisterChinchiroGamePayload_chinchiroGame(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		default:
-			panic("unknown field " + strconv.Quote(field.Name))
-		}
-	}
-	out.Dispatch(ctx)
-	if out.Invalids > 0 {
-		return graphql.Null
-	}
-
-	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
-
-	for label, dfs := range deferred {
-		ec.processDeferredGroup(graphql.DeferredGroup{
-			Label:    label,
-			Path:     graphql.GetPath(ctx),
-			FieldSet: dfs,
-			Context:  ctx,
-		})
-	}
-
-	return out
-}
-
-var registerChinchiroGameTurnPayloadImplementors = []string{"RegisterChinchiroGameTurnPayload"}
-
-func (ec *executionContext) _RegisterChinchiroGameTurnPayload(ctx context.Context, sel ast.SelectionSet, obj *gqlmodel.RegisterChinchiroGameTurnPayload) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, registerChinchiroGameTurnPayloadImplementors)
-
-	out := graphql.NewFieldSet(fields)
-	deferred := make(map[string]*graphql.FieldSet)
-	for i, field := range fields {
-		switch field.Name {
-		case "__typename":
-			out.Values[i] = graphql.MarshalString("RegisterChinchiroGameTurnPayload")
-		case "chinchiroGameTurn":
-			out.Values[i] = ec._RegisterChinchiroGameTurnPayload_chinchiroGameTurn(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -12330,45 +11658,6 @@ func (ec *executionContext) _SimpleChinchiroRoom(ctx context.Context, sel ast.Se
 			}
 		case "settings":
 			out.Values[i] = ec._SimpleChinchiroRoom_settings(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		default:
-			panic("unknown field " + strconv.Quote(field.Name))
-		}
-	}
-	out.Dispatch(ctx)
-	if out.Invalids > 0 {
-		return graphql.Null
-	}
-
-	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
-
-	for label, dfs := range deferred {
-		ec.processDeferredGroup(graphql.DeferredGroup{
-			Label:    label,
-			Path:     graphql.GetPath(ctx),
-			FieldSet: dfs,
-			Context:  ctx,
-		})
-	}
-
-	return out
-}
-
-var updateChinchiroGameParticipantPayloadImplementors = []string{"UpdateChinchiroGameParticipantPayload"}
-
-func (ec *executionContext) _UpdateChinchiroGameParticipantPayload(ctx context.Context, sel ast.SelectionSet, obj *gqlmodel.UpdateChinchiroGameParticipantPayload) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, updateChinchiroGameParticipantPayloadImplementors)
-
-	out := graphql.NewFieldSet(fields)
-	deferred := make(map[string]*graphql.FieldSet)
-	for i, field := range fields {
-		switch field.Name {
-		case "__typename":
-			out.Values[i] = graphql.MarshalString("UpdateChinchiroGameParticipantPayload")
-		case "ok":
-			out.Values[i] = ec._UpdateChinchiroGameParticipantPayload_ok(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -12877,16 +12166,16 @@ func (ec *executionContext) ___Type(ctx context.Context, sel ast.SelectionSet, o
 
 // region    ***************************** type.gotpl *****************************
 
-func (ec *executionContext) unmarshalNBetChinchiroGameTurnParticipant2chatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐBetChinchiroGameTurnParticipant(ctx context.Context, v interface{}) (gqlmodel.BetChinchiroGameTurnParticipant, error) {
+func (ec *executionContext) unmarshalNBetChinchiroGameTurnParticipant2wolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐBetChinchiroGameTurnParticipant(ctx context.Context, v interface{}) (gqlmodel.BetChinchiroGameTurnParticipant, error) {
 	res, err := ec.unmarshalInputBetChinchiroGameTurnParticipant(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) marshalNBetChinchiroGameTurnParticipantPayload2chatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐBetChinchiroGameTurnParticipantPayload(ctx context.Context, sel ast.SelectionSet, v gqlmodel.BetChinchiroGameTurnParticipantPayload) graphql.Marshaler {
+func (ec *executionContext) marshalNBetChinchiroGameTurnParticipantPayload2wolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐBetChinchiroGameTurnParticipantPayload(ctx context.Context, sel ast.SelectionSet, v gqlmodel.BetChinchiroGameTurnParticipantPayload) graphql.Marshaler {
 	return ec._BetChinchiroGameTurnParticipantPayload(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNBetChinchiroGameTurnParticipantPayload2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐBetChinchiroGameTurnParticipantPayload(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.BetChinchiroGameTurnParticipantPayload) graphql.Marshaler {
+func (ec *executionContext) marshalNBetChinchiroGameTurnParticipantPayload2ᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐBetChinchiroGameTurnParticipantPayload(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.BetChinchiroGameTurnParticipantPayload) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -12911,17 +12200,17 @@ func (ec *executionContext) marshalNBoolean2bool(ctx context.Context, sel ast.Se
 	return res
 }
 
-func (ec *executionContext) unmarshalNChinchiroCombination2chatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroCombination(ctx context.Context, v interface{}) (gqlmodel.ChinchiroCombination, error) {
+func (ec *executionContext) unmarshalNChinchiroCombination2wolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroCombination(ctx context.Context, v interface{}) (gqlmodel.ChinchiroCombination, error) {
 	var res gqlmodel.ChinchiroCombination
 	err := res.UnmarshalGQL(v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) marshalNChinchiroCombination2chatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroCombination(ctx context.Context, sel ast.SelectionSet, v gqlmodel.ChinchiroCombination) graphql.Marshaler {
+func (ec *executionContext) marshalNChinchiroCombination2wolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroCombination(ctx context.Context, sel ast.SelectionSet, v gqlmodel.ChinchiroCombination) graphql.Marshaler {
 	return v
 }
 
-func (ec *executionContext) marshalNChinchiroGame2ᚕᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameᚄ(ctx context.Context, sel ast.SelectionSet, v []*gqlmodel.ChinchiroGame) graphql.Marshaler {
+func (ec *executionContext) marshalNChinchiroGame2ᚕᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameᚄ(ctx context.Context, sel ast.SelectionSet, v []*gqlmodel.ChinchiroGame) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -12945,7 +12234,7 @@ func (ec *executionContext) marshalNChinchiroGame2ᚕᚖchatᚑroleᚑplayᚋmid
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNChinchiroGame2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGame(ctx, sel, v[i])
+			ret[i] = ec.marshalNChinchiroGame2ᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGame(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -12965,7 +12254,7 @@ func (ec *executionContext) marshalNChinchiroGame2ᚕᚖchatᚑroleᚑplayᚋmid
 	return ret
 }
 
-func (ec *executionContext) marshalNChinchiroGame2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGame(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.ChinchiroGame) graphql.Marshaler {
+func (ec *executionContext) marshalNChinchiroGame2ᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGame(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.ChinchiroGame) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -12975,11 +12264,11 @@ func (ec *executionContext) marshalNChinchiroGame2ᚖchatᚑroleᚑplayᚋmiddle
 	return ec._ChinchiroGame(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNChinchiroGameParticipant2chatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameParticipant(ctx context.Context, sel ast.SelectionSet, v gqlmodel.ChinchiroGameParticipant) graphql.Marshaler {
+func (ec *executionContext) marshalNChinchiroGameParticipant2wolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameParticipant(ctx context.Context, sel ast.SelectionSet, v gqlmodel.ChinchiroGameParticipant) graphql.Marshaler {
 	return ec._ChinchiroGameParticipant(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNChinchiroGameParticipant2ᚕᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameParticipantᚄ(ctx context.Context, sel ast.SelectionSet, v []*gqlmodel.ChinchiroGameParticipant) graphql.Marshaler {
+func (ec *executionContext) marshalNChinchiroGameParticipant2ᚕᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameParticipantᚄ(ctx context.Context, sel ast.SelectionSet, v []*gqlmodel.ChinchiroGameParticipant) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -13003,7 +12292,7 @@ func (ec *executionContext) marshalNChinchiroGameParticipant2ᚕᚖchatᚑrole�
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNChinchiroGameParticipant2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameParticipant(ctx, sel, v[i])
+			ret[i] = ec.marshalNChinchiroGameParticipant2ᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameParticipant(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -13023,7 +12312,7 @@ func (ec *executionContext) marshalNChinchiroGameParticipant2ᚕᚖchatᚑrole�
 	return ret
 }
 
-func (ec *executionContext) marshalNChinchiroGameParticipant2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameParticipant(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.ChinchiroGameParticipant) graphql.Marshaler {
+func (ec *executionContext) marshalNChinchiroGameParticipant2ᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameParticipant(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.ChinchiroGameParticipant) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -13033,21 +12322,21 @@ func (ec *executionContext) marshalNChinchiroGameParticipant2ᚖchatᚑroleᚑpl
 	return ec._ChinchiroGameParticipant(ctx, sel, v)
 }
 
-func (ec *executionContext) unmarshalNChinchiroGameStatus2chatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameStatus(ctx context.Context, v interface{}) (gqlmodel.ChinchiroGameStatus, error) {
+func (ec *executionContext) unmarshalNChinchiroGameStatus2wolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameStatus(ctx context.Context, v interface{}) (gqlmodel.ChinchiroGameStatus, error) {
 	var res gqlmodel.ChinchiroGameStatus
 	err := res.UnmarshalGQL(v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) marshalNChinchiroGameStatus2chatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameStatus(ctx context.Context, sel ast.SelectionSet, v gqlmodel.ChinchiroGameStatus) graphql.Marshaler {
+func (ec *executionContext) marshalNChinchiroGameStatus2wolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameStatus(ctx context.Context, sel ast.SelectionSet, v gqlmodel.ChinchiroGameStatus) graphql.Marshaler {
 	return v
 }
 
-func (ec *executionContext) marshalNChinchiroGameTurn2chatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameTurn(ctx context.Context, sel ast.SelectionSet, v gqlmodel.ChinchiroGameTurn) graphql.Marshaler {
+func (ec *executionContext) marshalNChinchiroGameTurn2wolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameTurn(ctx context.Context, sel ast.SelectionSet, v gqlmodel.ChinchiroGameTurn) graphql.Marshaler {
 	return ec._ChinchiroGameTurn(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNChinchiroGameTurn2ᚕᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameTurnᚄ(ctx context.Context, sel ast.SelectionSet, v []*gqlmodel.ChinchiroGameTurn) graphql.Marshaler {
+func (ec *executionContext) marshalNChinchiroGameTurn2ᚕᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameTurnᚄ(ctx context.Context, sel ast.SelectionSet, v []*gqlmodel.ChinchiroGameTurn) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -13071,7 +12360,7 @@ func (ec *executionContext) marshalNChinchiroGameTurn2ᚕᚖchatᚑroleᚑplay�
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNChinchiroGameTurn2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameTurn(ctx, sel, v[i])
+			ret[i] = ec.marshalNChinchiroGameTurn2ᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameTurn(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -13091,7 +12380,7 @@ func (ec *executionContext) marshalNChinchiroGameTurn2ᚕᚖchatᚑroleᚑplay�
 	return ret
 }
 
-func (ec *executionContext) marshalNChinchiroGameTurn2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameTurn(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.ChinchiroGameTurn) graphql.Marshaler {
+func (ec *executionContext) marshalNChinchiroGameTurn2ᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameTurn(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.ChinchiroGameTurn) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -13101,7 +12390,7 @@ func (ec *executionContext) marshalNChinchiroGameTurn2ᚖchatᚑroleᚑplayᚋmi
 	return ec._ChinchiroGameTurn(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNChinchiroGameTurnParticipantResult2ᚕᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameTurnParticipantResultᚄ(ctx context.Context, sel ast.SelectionSet, v []*gqlmodel.ChinchiroGameTurnParticipantResult) graphql.Marshaler {
+func (ec *executionContext) marshalNChinchiroGameTurnParticipantResult2ᚕᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameTurnParticipantResultᚄ(ctx context.Context, sel ast.SelectionSet, v []*gqlmodel.ChinchiroGameTurnParticipantResult) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -13125,7 +12414,7 @@ func (ec *executionContext) marshalNChinchiroGameTurnParticipantResult2ᚕᚖcha
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNChinchiroGameTurnParticipantResult2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameTurnParticipantResult(ctx, sel, v[i])
+			ret[i] = ec.marshalNChinchiroGameTurnParticipantResult2ᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameTurnParticipantResult(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -13145,7 +12434,7 @@ func (ec *executionContext) marshalNChinchiroGameTurnParticipantResult2ᚕᚖcha
 	return ret
 }
 
-func (ec *executionContext) marshalNChinchiroGameTurnParticipantResult2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameTurnParticipantResult(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.ChinchiroGameTurnParticipantResult) graphql.Marshaler {
+func (ec *executionContext) marshalNChinchiroGameTurnParticipantResult2ᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameTurnParticipantResult(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.ChinchiroGameTurnParticipantResult) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -13155,12 +12444,12 @@ func (ec *executionContext) marshalNChinchiroGameTurnParticipantResult2ᚖchat�
 	return ec._ChinchiroGameTurnParticipantResult(ctx, sel, v)
 }
 
-func (ec *executionContext) unmarshalNChinchiroGameTurnParticipantResultsQuery2chatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameTurnParticipantResultsQuery(ctx context.Context, v interface{}) (gqlmodel.ChinchiroGameTurnParticipantResultsQuery, error) {
+func (ec *executionContext) unmarshalNChinchiroGameTurnParticipantResultsQuery2wolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameTurnParticipantResultsQuery(ctx context.Context, v interface{}) (gqlmodel.ChinchiroGameTurnParticipantResultsQuery, error) {
 	res, err := ec.unmarshalInputChinchiroGameTurnParticipantResultsQuery(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) marshalNChinchiroGameTurnParticipantRoll2ᚕᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameTurnParticipantRollᚄ(ctx context.Context, sel ast.SelectionSet, v []*gqlmodel.ChinchiroGameTurnParticipantRoll) graphql.Marshaler {
+func (ec *executionContext) marshalNChinchiroGameTurnParticipantRoll2ᚕᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameTurnParticipantRollᚄ(ctx context.Context, sel ast.SelectionSet, v []*gqlmodel.ChinchiroGameTurnParticipantRoll) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -13184,7 +12473,7 @@ func (ec *executionContext) marshalNChinchiroGameTurnParticipantRoll2ᚕᚖchat�
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNChinchiroGameTurnParticipantRoll2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameTurnParticipantRoll(ctx, sel, v[i])
+			ret[i] = ec.marshalNChinchiroGameTurnParticipantRoll2ᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameTurnParticipantRoll(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -13204,7 +12493,7 @@ func (ec *executionContext) marshalNChinchiroGameTurnParticipantRoll2ᚕᚖchat�
 	return ret
 }
 
-func (ec *executionContext) marshalNChinchiroGameTurnParticipantRoll2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameTurnParticipantRoll(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.ChinchiroGameTurnParticipantRoll) graphql.Marshaler {
+func (ec *executionContext) marshalNChinchiroGameTurnParticipantRoll2ᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameTurnParticipantRoll(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.ChinchiroGameTurnParticipantRoll) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -13214,27 +12503,27 @@ func (ec *executionContext) marshalNChinchiroGameTurnParticipantRoll2ᚖchatᚑr
 	return ec._ChinchiroGameTurnParticipantRoll(ctx, sel, v)
 }
 
-func (ec *executionContext) unmarshalNChinchiroGameTurnStatus2chatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameTurnStatus(ctx context.Context, v interface{}) (gqlmodel.ChinchiroGameTurnStatus, error) {
+func (ec *executionContext) unmarshalNChinchiroGameTurnStatus2wolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameTurnStatus(ctx context.Context, v interface{}) (gqlmodel.ChinchiroGameTurnStatus, error) {
 	var res gqlmodel.ChinchiroGameTurnStatus
 	err := res.UnmarshalGQL(v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) marshalNChinchiroGameTurnStatus2chatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameTurnStatus(ctx context.Context, sel ast.SelectionSet, v gqlmodel.ChinchiroGameTurnStatus) graphql.Marshaler {
+func (ec *executionContext) marshalNChinchiroGameTurnStatus2wolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameTurnStatus(ctx context.Context, sel ast.SelectionSet, v gqlmodel.ChinchiroGameTurnStatus) graphql.Marshaler {
 	return v
 }
 
-func (ec *executionContext) unmarshalNChinchiroGameTurnsQuery2chatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameTurnsQuery(ctx context.Context, v interface{}) (gqlmodel.ChinchiroGameTurnsQuery, error) {
+func (ec *executionContext) unmarshalNChinchiroGameTurnsQuery2wolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameTurnsQuery(ctx context.Context, v interface{}) (gqlmodel.ChinchiroGameTurnsQuery, error) {
 	res, err := ec.unmarshalInputChinchiroGameTurnsQuery(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNChinchiroGamesQuery2chatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGamesQuery(ctx context.Context, v interface{}) (gqlmodel.ChinchiroGamesQuery, error) {
+func (ec *executionContext) unmarshalNChinchiroGamesQuery2wolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGamesQuery(ctx context.Context, v interface{}) (gqlmodel.ChinchiroGamesQuery, error) {
 	res, err := ec.unmarshalInputChinchiroGamesQuery(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) marshalNChinchiroRoom2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroRoom(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.ChinchiroRoom) graphql.Marshaler {
+func (ec *executionContext) marshalNChinchiroRoom2ᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroRoom(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.ChinchiroRoom) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -13244,7 +12533,7 @@ func (ec *executionContext) marshalNChinchiroRoom2ᚖchatᚑroleᚑplayᚋmiddle
 	return ec._ChinchiroRoom(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNChinchiroRoomMaster2ᚕᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroRoomMasterᚄ(ctx context.Context, sel ast.SelectionSet, v []*gqlmodel.ChinchiroRoomMaster) graphql.Marshaler {
+func (ec *executionContext) marshalNChinchiroRoomMaster2ᚕᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroRoomMasterᚄ(ctx context.Context, sel ast.SelectionSet, v []*gqlmodel.ChinchiroRoomMaster) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -13268,7 +12557,7 @@ func (ec *executionContext) marshalNChinchiroRoomMaster2ᚕᚖchatᚑroleᚑplay
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNChinchiroRoomMaster2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroRoomMaster(ctx, sel, v[i])
+			ret[i] = ec.marshalNChinchiroRoomMaster2ᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroRoomMaster(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -13288,7 +12577,7 @@ func (ec *executionContext) marshalNChinchiroRoomMaster2ᚕᚖchatᚑroleᚑplay
 	return ret
 }
 
-func (ec *executionContext) marshalNChinchiroRoomMaster2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroRoomMaster(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.ChinchiroRoomMaster) graphql.Marshaler {
+func (ec *executionContext) marshalNChinchiroRoomMaster2ᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroRoomMaster(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.ChinchiroRoomMaster) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -13298,11 +12587,11 @@ func (ec *executionContext) marshalNChinchiroRoomMaster2ᚖchatᚑroleᚑplayᚋ
 	return ec._ChinchiroRoomMaster(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNChinchiroRoomParticipant2chatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroRoomParticipant(ctx context.Context, sel ast.SelectionSet, v gqlmodel.ChinchiroRoomParticipant) graphql.Marshaler {
+func (ec *executionContext) marshalNChinchiroRoomParticipant2wolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroRoomParticipant(ctx context.Context, sel ast.SelectionSet, v gqlmodel.ChinchiroRoomParticipant) graphql.Marshaler {
 	return ec._ChinchiroRoomParticipant(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNChinchiroRoomParticipant2ᚕᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroRoomParticipantᚄ(ctx context.Context, sel ast.SelectionSet, v []*gqlmodel.ChinchiroRoomParticipant) graphql.Marshaler {
+func (ec *executionContext) marshalNChinchiroRoomParticipant2ᚕᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroRoomParticipantᚄ(ctx context.Context, sel ast.SelectionSet, v []*gqlmodel.ChinchiroRoomParticipant) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -13326,7 +12615,7 @@ func (ec *executionContext) marshalNChinchiroRoomParticipant2ᚕᚖchatᚑrole�
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNChinchiroRoomParticipant2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroRoomParticipant(ctx, sel, v[i])
+			ret[i] = ec.marshalNChinchiroRoomParticipant2ᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroRoomParticipant(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -13346,7 +12635,7 @@ func (ec *executionContext) marshalNChinchiroRoomParticipant2ᚕᚖchatᚑrole�
 	return ret
 }
 
-func (ec *executionContext) marshalNChinchiroRoomParticipant2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroRoomParticipant(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.ChinchiroRoomParticipant) graphql.Marshaler {
+func (ec *executionContext) marshalNChinchiroRoomParticipant2ᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroRoomParticipant(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.ChinchiroRoomParticipant) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -13356,7 +12645,7 @@ func (ec *executionContext) marshalNChinchiroRoomParticipant2ᚖchatᚑroleᚑpl
 	return ec._ChinchiroRoomParticipant(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNChinchiroRoomSettings2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroRoomSettings(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.ChinchiroRoomSettings) graphql.Marshaler {
+func (ec *executionContext) marshalNChinchiroRoomSettings2ᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroRoomSettings(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.ChinchiroRoomSettings) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -13366,50 +12655,31 @@ func (ec *executionContext) marshalNChinchiroRoomSettings2ᚖchatᚑroleᚑplay�
 	return ec._ChinchiroRoomSettings(ctx, sel, v)
 }
 
-func (ec *executionContext) unmarshalNChinchiroRoomStatus2chatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroRoomStatus(ctx context.Context, v interface{}) (gqlmodel.ChinchiroRoomStatus, error) {
+func (ec *executionContext) unmarshalNChinchiroRoomStatus2wolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroRoomStatus(ctx context.Context, v interface{}) (gqlmodel.ChinchiroRoomStatus, error) {
 	var res gqlmodel.ChinchiroRoomStatus
 	err := res.UnmarshalGQL(v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) marshalNChinchiroRoomStatus2chatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroRoomStatus(ctx context.Context, sel ast.SelectionSet, v gqlmodel.ChinchiroRoomStatus) graphql.Marshaler {
+func (ec *executionContext) marshalNChinchiroRoomStatus2wolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroRoomStatus(ctx context.Context, sel ast.SelectionSet, v gqlmodel.ChinchiroRoomStatus) graphql.Marshaler {
 	return v
 }
 
-func (ec *executionContext) unmarshalNChinchiroRoomsQuery2chatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroRoomsQuery(ctx context.Context, v interface{}) (gqlmodel.ChinchiroRoomsQuery, error) {
+func (ec *executionContext) unmarshalNChinchiroRoomsQuery2wolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroRoomsQuery(ctx context.Context, v interface{}) (gqlmodel.ChinchiroRoomsQuery, error) {
 	res, err := ec.unmarshalInputChinchiroRoomsQuery(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNDeleteChinchiroGameParticipant2chatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐDeleteChinchiroGameParticipant(ctx context.Context, v interface{}) (gqlmodel.DeleteChinchiroGameParticipant, error) {
-	res, err := ec.unmarshalInputDeleteChinchiroGameParticipant(ctx, v)
-	return res, graphql.ErrorOnPath(ctx, err)
-}
-
-func (ec *executionContext) marshalNDeleteChinchiroGameParticipantPayload2chatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐDeleteChinchiroGameParticipantPayload(ctx context.Context, sel ast.SelectionSet, v gqlmodel.DeleteChinchiroGameParticipantPayload) graphql.Marshaler {
-	return ec._DeleteChinchiroGameParticipantPayload(ctx, sel, &v)
-}
-
-func (ec *executionContext) marshalNDeleteChinchiroGameParticipantPayload2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐDeleteChinchiroGameParticipantPayload(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.DeleteChinchiroGameParticipantPayload) graphql.Marshaler {
-	if v == nil {
-		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
-		}
-		return graphql.Null
-	}
-	return ec._DeleteChinchiroGameParticipantPayload(ctx, sel, v)
-}
-
-func (ec *executionContext) unmarshalNDeleteChinchiroRoomMaster2chatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐDeleteChinchiroRoomMaster(ctx context.Context, v interface{}) (gqlmodel.DeleteChinchiroRoomMaster, error) {
+func (ec *executionContext) unmarshalNDeleteChinchiroRoomMaster2wolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐDeleteChinchiroRoomMaster(ctx context.Context, v interface{}) (gqlmodel.DeleteChinchiroRoomMaster, error) {
 	res, err := ec.unmarshalInputDeleteChinchiroRoomMaster(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) marshalNDeleteChinchiroRoomMasterPayload2chatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐDeleteChinchiroRoomMasterPayload(ctx context.Context, sel ast.SelectionSet, v gqlmodel.DeleteChinchiroRoomMasterPayload) graphql.Marshaler {
+func (ec *executionContext) marshalNDeleteChinchiroRoomMasterPayload2wolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐDeleteChinchiroRoomMasterPayload(ctx context.Context, sel ast.SelectionSet, v gqlmodel.DeleteChinchiroRoomMasterPayload) graphql.Marshaler {
 	return ec._DeleteChinchiroRoomMasterPayload(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNDeleteChinchiroRoomMasterPayload2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐDeleteChinchiroRoomMasterPayload(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.DeleteChinchiroRoomMasterPayload) graphql.Marshaler {
+func (ec *executionContext) marshalNDeleteChinchiroRoomMasterPayload2ᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐDeleteChinchiroRoomMasterPayload(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.DeleteChinchiroRoomMasterPayload) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -13419,16 +12689,16 @@ func (ec *executionContext) marshalNDeleteChinchiroRoomMasterPayload2ᚖchatᚑr
 	return ec._DeleteChinchiroRoomMasterPayload(ctx, sel, v)
 }
 
-func (ec *executionContext) unmarshalNDeleteChinchiroRoomParticipant2chatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐDeleteChinchiroRoomParticipant(ctx context.Context, v interface{}) (gqlmodel.DeleteChinchiroRoomParticipant, error) {
+func (ec *executionContext) unmarshalNDeleteChinchiroRoomParticipant2wolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐDeleteChinchiroRoomParticipant(ctx context.Context, v interface{}) (gqlmodel.DeleteChinchiroRoomParticipant, error) {
 	res, err := ec.unmarshalInputDeleteChinchiroRoomParticipant(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) marshalNDeleteChinchiroRoomParticipantPayload2chatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐDeleteChinchiroRoomParticipantPayload(ctx context.Context, sel ast.SelectionSet, v gqlmodel.DeleteChinchiroRoomParticipantPayload) graphql.Marshaler {
+func (ec *executionContext) marshalNDeleteChinchiroRoomParticipantPayload2wolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐDeleteChinchiroRoomParticipantPayload(ctx context.Context, sel ast.SelectionSet, v gqlmodel.DeleteChinchiroRoomParticipantPayload) graphql.Marshaler {
 	return ec._DeleteChinchiroRoomParticipantPayload(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNDeleteChinchiroRoomParticipantPayload2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐDeleteChinchiroRoomParticipantPayload(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.DeleteChinchiroRoomParticipantPayload) graphql.Marshaler {
+func (ec *executionContext) marshalNDeleteChinchiroRoomParticipantPayload2ᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐDeleteChinchiroRoomParticipantPayload(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.DeleteChinchiroRoomParticipantPayload) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -13468,16 +12738,16 @@ func (ec *executionContext) marshalNInt2int(ctx context.Context, sel ast.Selecti
 	return res
 }
 
-func (ec *executionContext) unmarshalNLeaveChinchiroRoom2chatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐLeaveChinchiroRoom(ctx context.Context, v interface{}) (gqlmodel.LeaveChinchiroRoom, error) {
+func (ec *executionContext) unmarshalNLeaveChinchiroRoom2wolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐLeaveChinchiroRoom(ctx context.Context, v interface{}) (gqlmodel.LeaveChinchiroRoom, error) {
 	res, err := ec.unmarshalInputLeaveChinchiroRoom(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) marshalNLeaveChinchiroRoomPayload2chatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐLeaveChinchiroRoomPayload(ctx context.Context, sel ast.SelectionSet, v gqlmodel.LeaveChinchiroRoomPayload) graphql.Marshaler {
+func (ec *executionContext) marshalNLeaveChinchiroRoomPayload2wolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐLeaveChinchiroRoomPayload(ctx context.Context, sel ast.SelectionSet, v gqlmodel.LeaveChinchiroRoomPayload) graphql.Marshaler {
 	return ec._LeaveChinchiroRoomPayload(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNLeaveChinchiroRoomPayload2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐLeaveChinchiroRoomPayload(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.LeaveChinchiroRoomPayload) graphql.Marshaler {
+func (ec *executionContext) marshalNLeaveChinchiroRoomPayload2ᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐLeaveChinchiroRoomPayload(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.LeaveChinchiroRoomPayload) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -13487,41 +12757,31 @@ func (ec *executionContext) marshalNLeaveChinchiroRoomPayload2ᚖchatᚑroleᚑp
 	return ec._LeaveChinchiroRoomPayload(ctx, sel, v)
 }
 
-func (ec *executionContext) unmarshalNNewChinchiroGame2chatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐNewChinchiroGame(ctx context.Context, v interface{}) (gqlmodel.NewChinchiroGame, error) {
+func (ec *executionContext) unmarshalNNewChinchiroGame2wolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐNewChinchiroGame(ctx context.Context, v interface{}) (gqlmodel.NewChinchiroGame, error) {
 	res, err := ec.unmarshalInputNewChinchiroGame(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNNewChinchiroGameParticipant2chatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐNewChinchiroGameParticipant(ctx context.Context, v interface{}) (gqlmodel.NewChinchiroGameParticipant, error) {
-	res, err := ec.unmarshalInputNewChinchiroGameParticipant(ctx, v)
-	return res, graphql.ErrorOnPath(ctx, err)
-}
-
-func (ec *executionContext) unmarshalNNewChinchiroGameTurn2chatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐNewChinchiroGameTurn(ctx context.Context, v interface{}) (gqlmodel.NewChinchiroGameTurn, error) {
-	res, err := ec.unmarshalInputNewChinchiroGameTurn(ctx, v)
-	return res, graphql.ErrorOnPath(ctx, err)
-}
-
-func (ec *executionContext) unmarshalNNewChinchiroRoom2chatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐNewChinchiroRoom(ctx context.Context, v interface{}) (gqlmodel.NewChinchiroRoom, error) {
+func (ec *executionContext) unmarshalNNewChinchiroRoom2wolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐNewChinchiroRoom(ctx context.Context, v interface{}) (gqlmodel.NewChinchiroRoom, error) {
 	res, err := ec.unmarshalInputNewChinchiroRoom(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNNewChinchiroRoomMaster2chatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐNewChinchiroRoomMaster(ctx context.Context, v interface{}) (gqlmodel.NewChinchiroRoomMaster, error) {
+func (ec *executionContext) unmarshalNNewChinchiroRoomMaster2wolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐNewChinchiroRoomMaster(ctx context.Context, v interface{}) (gqlmodel.NewChinchiroRoomMaster, error) {
 	res, err := ec.unmarshalInputNewChinchiroRoomMaster(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNNewChinchiroRoomParticipant2chatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐNewChinchiroRoomParticipant(ctx context.Context, v interface{}) (gqlmodel.NewChinchiroRoomParticipant, error) {
+func (ec *executionContext) unmarshalNNewChinchiroRoomParticipant2wolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐNewChinchiroRoomParticipant(ctx context.Context, v interface{}) (gqlmodel.NewChinchiroRoomParticipant, error) {
 	res, err := ec.unmarshalInputNewChinchiroRoomParticipant(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) marshalNPlayer2chatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐPlayer(ctx context.Context, sel ast.SelectionSet, v gqlmodel.Player) graphql.Marshaler {
+func (ec *executionContext) marshalNPlayer2wolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐPlayer(ctx context.Context, sel ast.SelectionSet, v gqlmodel.Player) graphql.Marshaler {
 	return ec._Player(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNPlayer2ᚕᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐPlayerᚄ(ctx context.Context, sel ast.SelectionSet, v []*gqlmodel.Player) graphql.Marshaler {
+func (ec *executionContext) marshalNPlayer2ᚕᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐPlayerᚄ(ctx context.Context, sel ast.SelectionSet, v []*gqlmodel.Player) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -13545,7 +12805,7 @@ func (ec *executionContext) marshalNPlayer2ᚕᚖchatᚑroleᚑplayᚋmiddleware
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNPlayer2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐPlayer(ctx, sel, v[i])
+			ret[i] = ec.marshalNPlayer2ᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐPlayer(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -13565,7 +12825,7 @@ func (ec *executionContext) marshalNPlayer2ᚕᚖchatᚑroleᚑplayᚋmiddleware
 	return ret
 }
 
-func (ec *executionContext) marshalNPlayer2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐPlayer(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.Player) graphql.Marshaler {
+func (ec *executionContext) marshalNPlayer2ᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐPlayer(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.Player) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -13575,30 +12835,16 @@ func (ec *executionContext) marshalNPlayer2ᚖchatᚑroleᚑplayᚋmiddlewareᚋ
 	return ec._Player(ctx, sel, v)
 }
 
-func (ec *executionContext) unmarshalNPlayersQuery2chatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐPlayersQuery(ctx context.Context, v interface{}) (gqlmodel.PlayersQuery, error) {
+func (ec *executionContext) unmarshalNPlayersQuery2wolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐPlayersQuery(ctx context.Context, v interface{}) (gqlmodel.PlayersQuery, error) {
 	res, err := ec.unmarshalInputPlayersQuery(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) marshalNRegisterChinchiroGameParticipantPayload2chatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐRegisterChinchiroGameParticipantPayload(ctx context.Context, sel ast.SelectionSet, v gqlmodel.RegisterChinchiroGameParticipantPayload) graphql.Marshaler {
-	return ec._RegisterChinchiroGameParticipantPayload(ctx, sel, &v)
-}
-
-func (ec *executionContext) marshalNRegisterChinchiroGameParticipantPayload2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐRegisterChinchiroGameParticipantPayload(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.RegisterChinchiroGameParticipantPayload) graphql.Marshaler {
-	if v == nil {
-		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
-		}
-		return graphql.Null
-	}
-	return ec._RegisterChinchiroGameParticipantPayload(ctx, sel, v)
-}
-
-func (ec *executionContext) marshalNRegisterChinchiroGamePayload2chatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐRegisterChinchiroGamePayload(ctx context.Context, sel ast.SelectionSet, v gqlmodel.RegisterChinchiroGamePayload) graphql.Marshaler {
+func (ec *executionContext) marshalNRegisterChinchiroGamePayload2wolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐRegisterChinchiroGamePayload(ctx context.Context, sel ast.SelectionSet, v gqlmodel.RegisterChinchiroGamePayload) graphql.Marshaler {
 	return ec._RegisterChinchiroGamePayload(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNRegisterChinchiroGamePayload2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐRegisterChinchiroGamePayload(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.RegisterChinchiroGamePayload) graphql.Marshaler {
+func (ec *executionContext) marshalNRegisterChinchiroGamePayload2ᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐRegisterChinchiroGamePayload(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.RegisterChinchiroGamePayload) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -13608,25 +12854,11 @@ func (ec *executionContext) marshalNRegisterChinchiroGamePayload2ᚖchatᚑrole�
 	return ec._RegisterChinchiroGamePayload(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNRegisterChinchiroGameTurnPayload2chatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐRegisterChinchiroGameTurnPayload(ctx context.Context, sel ast.SelectionSet, v gqlmodel.RegisterChinchiroGameTurnPayload) graphql.Marshaler {
-	return ec._RegisterChinchiroGameTurnPayload(ctx, sel, &v)
-}
-
-func (ec *executionContext) marshalNRegisterChinchiroGameTurnPayload2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐRegisterChinchiroGameTurnPayload(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.RegisterChinchiroGameTurnPayload) graphql.Marshaler {
-	if v == nil {
-		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
-		}
-		return graphql.Null
-	}
-	return ec._RegisterChinchiroGameTurnPayload(ctx, sel, v)
-}
-
-func (ec *executionContext) marshalNRegisterChinchiroRoomMasterPayload2chatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐRegisterChinchiroRoomMasterPayload(ctx context.Context, sel ast.SelectionSet, v gqlmodel.RegisterChinchiroRoomMasterPayload) graphql.Marshaler {
+func (ec *executionContext) marshalNRegisterChinchiroRoomMasterPayload2wolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐRegisterChinchiroRoomMasterPayload(ctx context.Context, sel ast.SelectionSet, v gqlmodel.RegisterChinchiroRoomMasterPayload) graphql.Marshaler {
 	return ec._RegisterChinchiroRoomMasterPayload(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNRegisterChinchiroRoomMasterPayload2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐRegisterChinchiroRoomMasterPayload(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.RegisterChinchiroRoomMasterPayload) graphql.Marshaler {
+func (ec *executionContext) marshalNRegisterChinchiroRoomMasterPayload2ᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐRegisterChinchiroRoomMasterPayload(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.RegisterChinchiroRoomMasterPayload) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -13636,11 +12868,11 @@ func (ec *executionContext) marshalNRegisterChinchiroRoomMasterPayload2ᚖchat�
 	return ec._RegisterChinchiroRoomMasterPayload(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNRegisterChinchiroRoomParticipantPayload2chatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐRegisterChinchiroRoomParticipantPayload(ctx context.Context, sel ast.SelectionSet, v gqlmodel.RegisterChinchiroRoomParticipantPayload) graphql.Marshaler {
+func (ec *executionContext) marshalNRegisterChinchiroRoomParticipantPayload2wolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐRegisterChinchiroRoomParticipantPayload(ctx context.Context, sel ast.SelectionSet, v gqlmodel.RegisterChinchiroRoomParticipantPayload) graphql.Marshaler {
 	return ec._RegisterChinchiroRoomParticipantPayload(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNRegisterChinchiroRoomParticipantPayload2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐRegisterChinchiroRoomParticipantPayload(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.RegisterChinchiroRoomParticipantPayload) graphql.Marshaler {
+func (ec *executionContext) marshalNRegisterChinchiroRoomParticipantPayload2ᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐRegisterChinchiroRoomParticipantPayload(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.RegisterChinchiroRoomParticipantPayload) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -13650,11 +12882,11 @@ func (ec *executionContext) marshalNRegisterChinchiroRoomParticipantPayload2ᚖc
 	return ec._RegisterChinchiroRoomParticipantPayload(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNRegisterChinchiroRoomPayload2chatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐRegisterChinchiroRoomPayload(ctx context.Context, sel ast.SelectionSet, v gqlmodel.RegisterChinchiroRoomPayload) graphql.Marshaler {
+func (ec *executionContext) marshalNRegisterChinchiroRoomPayload2wolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐRegisterChinchiroRoomPayload(ctx context.Context, sel ast.SelectionSet, v gqlmodel.RegisterChinchiroRoomPayload) graphql.Marshaler {
 	return ec._RegisterChinchiroRoomPayload(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNRegisterChinchiroRoomPayload2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐRegisterChinchiroRoomPayload(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.RegisterChinchiroRoomPayload) graphql.Marshaler {
+func (ec *executionContext) marshalNRegisterChinchiroRoomPayload2ᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐRegisterChinchiroRoomPayload(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.RegisterChinchiroRoomPayload) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -13664,16 +12896,16 @@ func (ec *executionContext) marshalNRegisterChinchiroRoomPayload2ᚖchatᚑrole�
 	return ec._RegisterChinchiroRoomPayload(ctx, sel, v)
 }
 
-func (ec *executionContext) unmarshalNRollChinchiroGameTurnParticipant2chatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐRollChinchiroGameTurnParticipant(ctx context.Context, v interface{}) (gqlmodel.RollChinchiroGameTurnParticipant, error) {
+func (ec *executionContext) unmarshalNRollChinchiroGameTurnParticipant2wolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐRollChinchiroGameTurnParticipant(ctx context.Context, v interface{}) (gqlmodel.RollChinchiroGameTurnParticipant, error) {
 	res, err := ec.unmarshalInputRollChinchiroGameTurnParticipant(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) marshalNRollChinchiroGameTurnParticipantPayload2chatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐRollChinchiroGameTurnParticipantPayload(ctx context.Context, sel ast.SelectionSet, v gqlmodel.RollChinchiroGameTurnParticipantPayload) graphql.Marshaler {
+func (ec *executionContext) marshalNRollChinchiroGameTurnParticipantPayload2wolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐRollChinchiroGameTurnParticipantPayload(ctx context.Context, sel ast.SelectionSet, v gqlmodel.RollChinchiroGameTurnParticipantPayload) graphql.Marshaler {
 	return ec._RollChinchiroGameTurnParticipantPayload(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNRollChinchiroGameTurnParticipantPayload2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐRollChinchiroGameTurnParticipantPayload(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.RollChinchiroGameTurnParticipantPayload) graphql.Marshaler {
+func (ec *executionContext) marshalNRollChinchiroGameTurnParticipantPayload2ᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐRollChinchiroGameTurnParticipantPayload(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.RollChinchiroGameTurnParticipantPayload) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -13683,7 +12915,7 @@ func (ec *executionContext) marshalNRollChinchiroGameTurnParticipantPayload2ᚖc
 	return ec._RollChinchiroGameTurnParticipantPayload(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNSimpleChinchiroRoom2ᚕᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐSimpleChinchiroRoomᚄ(ctx context.Context, sel ast.SelectionSet, v []*gqlmodel.SimpleChinchiroRoom) graphql.Marshaler {
+func (ec *executionContext) marshalNSimpleChinchiroRoom2ᚕᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐSimpleChinchiroRoomᚄ(ctx context.Context, sel ast.SelectionSet, v []*gqlmodel.SimpleChinchiroRoom) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -13707,7 +12939,7 @@ func (ec *executionContext) marshalNSimpleChinchiroRoom2ᚕᚖchatᚑroleᚑplay
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNSimpleChinchiroRoom2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐSimpleChinchiroRoom(ctx, sel, v[i])
+			ret[i] = ec.marshalNSimpleChinchiroRoom2ᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐSimpleChinchiroRoom(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -13727,7 +12959,7 @@ func (ec *executionContext) marshalNSimpleChinchiroRoom2ᚕᚖchatᚑroleᚑplay
 	return ret
 }
 
-func (ec *executionContext) marshalNSimpleChinchiroRoom2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐSimpleChinchiroRoom(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.SimpleChinchiroRoom) graphql.Marshaler {
+func (ec *executionContext) marshalNSimpleChinchiroRoom2ᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐSimpleChinchiroRoom(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.SimpleChinchiroRoom) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -13784,16 +13016,16 @@ func (ec *executionContext) marshalNString2ᚕstringᚄ(ctx context.Context, sel
 	return ret
 }
 
-func (ec *executionContext) unmarshalNUpdateChinchiroGameTurnStatus2chatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐUpdateChinchiroGameTurnStatus(ctx context.Context, v interface{}) (gqlmodel.UpdateChinchiroGameTurnStatus, error) {
+func (ec *executionContext) unmarshalNUpdateChinchiroGameTurnStatus2wolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐUpdateChinchiroGameTurnStatus(ctx context.Context, v interface{}) (gqlmodel.UpdateChinchiroGameTurnStatus, error) {
 	res, err := ec.unmarshalInputUpdateChinchiroGameTurnStatus(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) marshalNUpdateChinchiroGameTurnStatusPayload2chatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐUpdateChinchiroGameTurnStatusPayload(ctx context.Context, sel ast.SelectionSet, v gqlmodel.UpdateChinchiroGameTurnStatusPayload) graphql.Marshaler {
+func (ec *executionContext) marshalNUpdateChinchiroGameTurnStatusPayload2wolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐUpdateChinchiroGameTurnStatusPayload(ctx context.Context, sel ast.SelectionSet, v gqlmodel.UpdateChinchiroGameTurnStatusPayload) graphql.Marshaler {
 	return ec._UpdateChinchiroGameTurnStatusPayload(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNUpdateChinchiroGameTurnStatusPayload2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐUpdateChinchiroGameTurnStatusPayload(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.UpdateChinchiroGameTurnStatusPayload) graphql.Marshaler {
+func (ec *executionContext) marshalNUpdateChinchiroGameTurnStatusPayload2ᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐUpdateChinchiroGameTurnStatusPayload(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.UpdateChinchiroGameTurnStatusPayload) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -13803,16 +13035,16 @@ func (ec *executionContext) marshalNUpdateChinchiroGameTurnStatusPayload2ᚖchat
 	return ec._UpdateChinchiroGameTurnStatusPayload(ctx, sel, v)
 }
 
-func (ec *executionContext) unmarshalNUpdateChinchiroRoomParticipant2chatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐUpdateChinchiroRoomParticipant(ctx context.Context, v interface{}) (gqlmodel.UpdateChinchiroRoomParticipant, error) {
+func (ec *executionContext) unmarshalNUpdateChinchiroRoomParticipant2wolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐUpdateChinchiroRoomParticipant(ctx context.Context, v interface{}) (gqlmodel.UpdateChinchiroRoomParticipant, error) {
 	res, err := ec.unmarshalInputUpdateChinchiroRoomParticipant(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) marshalNUpdateChinchiroRoomParticipantPayload2chatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐUpdateChinchiroRoomParticipantPayload(ctx context.Context, sel ast.SelectionSet, v gqlmodel.UpdateChinchiroRoomParticipantPayload) graphql.Marshaler {
+func (ec *executionContext) marshalNUpdateChinchiroRoomParticipantPayload2wolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐUpdateChinchiroRoomParticipantPayload(ctx context.Context, sel ast.SelectionSet, v gqlmodel.UpdateChinchiroRoomParticipantPayload) graphql.Marshaler {
 	return ec._UpdateChinchiroRoomParticipantPayload(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNUpdateChinchiroRoomParticipantPayload2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐUpdateChinchiroRoomParticipantPayload(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.UpdateChinchiroRoomParticipantPayload) graphql.Marshaler {
+func (ec *executionContext) marshalNUpdateChinchiroRoomParticipantPayload2ᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐUpdateChinchiroRoomParticipantPayload(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.UpdateChinchiroRoomParticipantPayload) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -13822,16 +13054,16 @@ func (ec *executionContext) marshalNUpdateChinchiroRoomParticipantPayload2ᚖcha
 	return ec._UpdateChinchiroRoomParticipantPayload(ctx, sel, v)
 }
 
-func (ec *executionContext) unmarshalNUpdateChinchiroRoomSettings2chatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐUpdateChinchiroRoomSettings(ctx context.Context, v interface{}) (gqlmodel.UpdateChinchiroRoomSettings, error) {
+func (ec *executionContext) unmarshalNUpdateChinchiroRoomSettings2wolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐUpdateChinchiroRoomSettings(ctx context.Context, v interface{}) (gqlmodel.UpdateChinchiroRoomSettings, error) {
 	res, err := ec.unmarshalInputUpdateChinchiroRoomSettings(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) marshalNUpdateChinchiroRoomSettingsPayload2chatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐUpdateChinchiroRoomSettingsPayload(ctx context.Context, sel ast.SelectionSet, v gqlmodel.UpdateChinchiroRoomSettingsPayload) graphql.Marshaler {
+func (ec *executionContext) marshalNUpdateChinchiroRoomSettingsPayload2wolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐUpdateChinchiroRoomSettingsPayload(ctx context.Context, sel ast.SelectionSet, v gqlmodel.UpdateChinchiroRoomSettingsPayload) graphql.Marshaler {
 	return ec._UpdateChinchiroRoomSettingsPayload(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNUpdateChinchiroRoomSettingsPayload2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐUpdateChinchiroRoomSettingsPayload(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.UpdateChinchiroRoomSettingsPayload) graphql.Marshaler {
+func (ec *executionContext) marshalNUpdateChinchiroRoomSettingsPayload2ᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐUpdateChinchiroRoomSettingsPayload(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.UpdateChinchiroRoomSettingsPayload) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -13841,16 +13073,16 @@ func (ec *executionContext) marshalNUpdateChinchiroRoomSettingsPayload2ᚖchat�
 	return ec._UpdateChinchiroRoomSettingsPayload(ctx, sel, v)
 }
 
-func (ec *executionContext) unmarshalNUpdateChinchiroRoomStatus2chatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐUpdateChinchiroRoomStatus(ctx context.Context, v interface{}) (gqlmodel.UpdateChinchiroRoomStatus, error) {
+func (ec *executionContext) unmarshalNUpdateChinchiroRoomStatus2wolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐUpdateChinchiroRoomStatus(ctx context.Context, v interface{}) (gqlmodel.UpdateChinchiroRoomStatus, error) {
 	res, err := ec.unmarshalInputUpdateChinchiroRoomStatus(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) marshalNUpdateChinchiroRoomStatusPayload2chatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐUpdateChinchiroRoomStatusPayload(ctx context.Context, sel ast.SelectionSet, v gqlmodel.UpdateChinchiroRoomStatusPayload) graphql.Marshaler {
+func (ec *executionContext) marshalNUpdateChinchiroRoomStatusPayload2wolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐUpdateChinchiroRoomStatusPayload(ctx context.Context, sel ast.SelectionSet, v gqlmodel.UpdateChinchiroRoomStatusPayload) graphql.Marshaler {
 	return ec._UpdateChinchiroRoomStatusPayload(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNUpdateChinchiroRoomStatusPayload2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐUpdateChinchiroRoomStatusPayload(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.UpdateChinchiroRoomStatusPayload) graphql.Marshaler {
+func (ec *executionContext) marshalNUpdateChinchiroRoomStatusPayload2ᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐUpdateChinchiroRoomStatusPayload(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.UpdateChinchiroRoomStatusPayload) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -14139,21 +13371,21 @@ func (ec *executionContext) marshalOBoolean2ᚖbool(ctx context.Context, sel ast
 	return res
 }
 
-func (ec *executionContext) marshalOChinchiroGame2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGame(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.ChinchiroGame) graphql.Marshaler {
+func (ec *executionContext) marshalOChinchiroGame2ᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGame(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.ChinchiroGame) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ChinchiroGame(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOChinchiroGameParticipant2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameParticipant(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.ChinchiroGameParticipant) graphql.Marshaler {
+func (ec *executionContext) marshalOChinchiroGameParticipant2ᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameParticipant(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.ChinchiroGameParticipant) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ChinchiroGameParticipant(ctx, sel, v)
 }
 
-func (ec *executionContext) unmarshalOChinchiroGameStatus2ᚕchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameStatusᚄ(ctx context.Context, v interface{}) ([]gqlmodel.ChinchiroGameStatus, error) {
+func (ec *executionContext) unmarshalOChinchiroGameStatus2ᚕwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameStatusᚄ(ctx context.Context, v interface{}) ([]gqlmodel.ChinchiroGameStatus, error) {
 	if v == nil {
 		return nil, nil
 	}
@@ -14165,7 +13397,7 @@ func (ec *executionContext) unmarshalOChinchiroGameStatus2ᚕchatᚑroleᚑplay�
 	res := make([]gqlmodel.ChinchiroGameStatus, len(vSlice))
 	for i := range vSlice {
 		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
-		res[i], err = ec.unmarshalNChinchiroGameStatus2chatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameStatus(ctx, vSlice[i])
+		res[i], err = ec.unmarshalNChinchiroGameStatus2wolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameStatus(ctx, vSlice[i])
 		if err != nil {
 			return nil, err
 		}
@@ -14173,7 +13405,7 @@ func (ec *executionContext) unmarshalOChinchiroGameStatus2ᚕchatᚑroleᚑplay�
 	return res, nil
 }
 
-func (ec *executionContext) marshalOChinchiroGameStatus2ᚕchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameStatusᚄ(ctx context.Context, sel ast.SelectionSet, v []gqlmodel.ChinchiroGameStatus) graphql.Marshaler {
+func (ec *executionContext) marshalOChinchiroGameStatus2ᚕwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameStatusᚄ(ctx context.Context, sel ast.SelectionSet, v []gqlmodel.ChinchiroGameStatus) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
@@ -14200,7 +13432,7 @@ func (ec *executionContext) marshalOChinchiroGameStatus2ᚕchatᚑroleᚑplayᚋ
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNChinchiroGameStatus2chatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameStatus(ctx, sel, v[i])
+			ret[i] = ec.marshalNChinchiroGameStatus2wolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameStatus(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -14220,14 +13452,14 @@ func (ec *executionContext) marshalOChinchiroGameStatus2ᚕchatᚑroleᚑplayᚋ
 	return ret
 }
 
-func (ec *executionContext) marshalOChinchiroGameTurn2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameTurn(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.ChinchiroGameTurn) graphql.Marshaler {
+func (ec *executionContext) marshalOChinchiroGameTurn2ᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameTurn(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.ChinchiroGameTurn) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ChinchiroGameTurn(ctx, sel, v)
 }
 
-func (ec *executionContext) unmarshalOChinchiroGameTurnRollsQuery2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameTurnRollsQuery(ctx context.Context, v interface{}) (*gqlmodel.ChinchiroGameTurnRollsQuery, error) {
+func (ec *executionContext) unmarshalOChinchiroGameTurnRollsQuery2ᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameTurnRollsQuery(ctx context.Context, v interface{}) (*gqlmodel.ChinchiroGameTurnRollsQuery, error) {
 	if v == nil {
 		return nil, nil
 	}
@@ -14235,7 +13467,7 @@ func (ec *executionContext) unmarshalOChinchiroGameTurnRollsQuery2ᚖchatᚑrole
 	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalOChinchiroGameTurnStatus2ᚕchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameTurnStatusᚄ(ctx context.Context, v interface{}) ([]gqlmodel.ChinchiroGameTurnStatus, error) {
+func (ec *executionContext) unmarshalOChinchiroGameTurnStatus2ᚕwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameTurnStatusᚄ(ctx context.Context, v interface{}) ([]gqlmodel.ChinchiroGameTurnStatus, error) {
 	if v == nil {
 		return nil, nil
 	}
@@ -14247,7 +13479,7 @@ func (ec *executionContext) unmarshalOChinchiroGameTurnStatus2ᚕchatᚑroleᚑp
 	res := make([]gqlmodel.ChinchiroGameTurnStatus, len(vSlice))
 	for i := range vSlice {
 		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
-		res[i], err = ec.unmarshalNChinchiroGameTurnStatus2chatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameTurnStatus(ctx, vSlice[i])
+		res[i], err = ec.unmarshalNChinchiroGameTurnStatus2wolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameTurnStatus(ctx, vSlice[i])
 		if err != nil {
 			return nil, err
 		}
@@ -14255,7 +13487,7 @@ func (ec *executionContext) unmarshalOChinchiroGameTurnStatus2ᚕchatᚑroleᚑp
 	return res, nil
 }
 
-func (ec *executionContext) marshalOChinchiroGameTurnStatus2ᚕchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameTurnStatusᚄ(ctx context.Context, sel ast.SelectionSet, v []gqlmodel.ChinchiroGameTurnStatus) graphql.Marshaler {
+func (ec *executionContext) marshalOChinchiroGameTurnStatus2ᚕwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameTurnStatusᚄ(ctx context.Context, sel ast.SelectionSet, v []gqlmodel.ChinchiroGameTurnStatus) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
@@ -14282,7 +13514,7 @@ func (ec *executionContext) marshalOChinchiroGameTurnStatus2ᚕchatᚑroleᚑpla
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNChinchiroGameTurnStatus2chatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameTurnStatus(ctx, sel, v[i])
+			ret[i] = ec.marshalNChinchiroGameTurnStatus2wolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroGameTurnStatus(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -14302,21 +13534,21 @@ func (ec *executionContext) marshalOChinchiroGameTurnStatus2ᚕchatᚑroleᚑpla
 	return ret
 }
 
-func (ec *executionContext) marshalOChinchiroRoom2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroRoom(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.ChinchiroRoom) graphql.Marshaler {
+func (ec *executionContext) marshalOChinchiroRoom2ᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroRoom(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.ChinchiroRoom) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ChinchiroRoom(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOChinchiroRoomParticipant2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroRoomParticipant(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.ChinchiroRoomParticipant) graphql.Marshaler {
+func (ec *executionContext) marshalOChinchiroRoomParticipant2ᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroRoomParticipant(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.ChinchiroRoomParticipant) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ChinchiroRoomParticipant(ctx, sel, v)
 }
 
-func (ec *executionContext) unmarshalOChinchiroRoomStatus2ᚕchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroRoomStatusᚄ(ctx context.Context, v interface{}) ([]gqlmodel.ChinchiroRoomStatus, error) {
+func (ec *executionContext) unmarshalOChinchiroRoomStatus2ᚕwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroRoomStatusᚄ(ctx context.Context, v interface{}) ([]gqlmodel.ChinchiroRoomStatus, error) {
 	if v == nil {
 		return nil, nil
 	}
@@ -14328,7 +13560,7 @@ func (ec *executionContext) unmarshalOChinchiroRoomStatus2ᚕchatᚑroleᚑplay�
 	res := make([]gqlmodel.ChinchiroRoomStatus, len(vSlice))
 	for i := range vSlice {
 		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
-		res[i], err = ec.unmarshalNChinchiroRoomStatus2chatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroRoomStatus(ctx, vSlice[i])
+		res[i], err = ec.unmarshalNChinchiroRoomStatus2wolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroRoomStatus(ctx, vSlice[i])
 		if err != nil {
 			return nil, err
 		}
@@ -14336,7 +13568,7 @@ func (ec *executionContext) unmarshalOChinchiroRoomStatus2ᚕchatᚑroleᚑplay�
 	return res, nil
 }
 
-func (ec *executionContext) marshalOChinchiroRoomStatus2ᚕchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroRoomStatusᚄ(ctx context.Context, sel ast.SelectionSet, v []gqlmodel.ChinchiroRoomStatus) graphql.Marshaler {
+func (ec *executionContext) marshalOChinchiroRoomStatus2ᚕwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroRoomStatusᚄ(ctx context.Context, sel ast.SelectionSet, v []gqlmodel.ChinchiroRoomStatus) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
@@ -14363,7 +13595,7 @@ func (ec *executionContext) marshalOChinchiroRoomStatus2ᚕchatᚑroleᚑplayᚋ
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNChinchiroRoomStatus2chatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroRoomStatus(ctx, sel, v[i])
+			ret[i] = ec.marshalNChinchiroRoomStatus2wolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐChinchiroRoomStatus(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -14437,7 +13669,7 @@ func (ec *executionContext) marshalOID2ᚖstring(ctx context.Context, sel ast.Se
 	return res
 }
 
-func (ec *executionContext) unmarshalOPageableQuery2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐPageableQuery(ctx context.Context, v interface{}) (*gqlmodel.PageableQuery, error) {
+func (ec *executionContext) unmarshalOPageableQuery2ᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐPageableQuery(ctx context.Context, v interface{}) (*gqlmodel.PageableQuery, error) {
 	if v == nil {
 		return nil, nil
 	}
@@ -14445,7 +13677,7 @@ func (ec *executionContext) unmarshalOPageableQuery2ᚖchatᚑroleᚑplayᚋmidd
 	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) marshalOPlayer2ᚖchatᚑroleᚑplayᚋmiddlewareᚋgraphᚋgqlmodelᚐPlayer(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.Player) graphql.Marshaler {
+func (ec *executionContext) marshalOPlayer2ᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐPlayer(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.Player) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}

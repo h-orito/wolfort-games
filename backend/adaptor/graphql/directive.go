@@ -1,10 +1,10 @@
 package graphql
 
 import (
-	"chat-role-play/adaptor/auth"
-	"chat-role-play/middleware/graph"
 	"context"
 	"errors"
+	"wolfort-games/adaptor/auth"
+	"wolfort-games/middleware/graph"
 
 	"github.com/99designs/gqlgen/graphql"
 )

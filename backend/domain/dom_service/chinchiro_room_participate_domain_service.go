@@ -1,26 +1,26 @@
 package dom_service
 
 import (
-	"chat-role-play/domain/model"
+	"wolfort-games/domain/model"
 )
 
-type ParticipateDomainService interface {
+type ChinchiroRoomParticipateDomainService interface {
 	AssertParticipate(room model.ChinchiroRoom, player model.Player, authorities []model.PlayerAuthority, password *string) error
 }
 
-type participateDomainService struct {
+type chinchiroRoomParticipateDomainService struct {
 	roomMasterDomainService ChinchiroRoomMasterDomainService
 }
 
-func NewParticipateDomainService(
+func NewChinchiroRoomParticipateDomainService(
 	roomMasterDomainService ChinchiroRoomMasterDomainService,
-) ParticipateDomainService {
-	return &participateDomainService{
+) ChinchiroRoomParticipateDomainService {
+	return &chinchiroRoomParticipateDomainService{
 		roomMasterDomainService: roomMasterDomainService,
 	}
 }
 
-func (s *participateDomainService) AssertParticipate(
+func (s *chinchiroRoomParticipateDomainService) AssertParticipate(
 	room model.ChinchiroRoom,
 	player model.Player,
 	authorities []model.PlayerAuthority,

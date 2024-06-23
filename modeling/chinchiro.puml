@@ -54,6 +54,20 @@ entity GameTurns {
 GameTurns }o--|| Games
 GameTurns }o--|| GameParticipants
 
+entity GameTrunParticipantRolls {
+    * id: int unsigned <<generated>>
+    --
+    * turn_id: int unsigned <<foreign key>>
+    * participant_id: int unsigned <<foreign key>>
+    * roll_number: int unsigned
+    * dice1: int unsigned
+    * dice2: int unsigned
+    * dice3: int unsigned
+}
+
+GameTrunParticipantRolls }o--|| GameTurns
+GameTrunParticipantRolls }o--|| GameParticipants
+
 entity GameTrunParticipantResults {
     * id: int unsigned <<generated>>
     --

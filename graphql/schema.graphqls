@@ -84,6 +84,7 @@ type ChinchiroGameParticipant {
 type ChinchiroGameTurn {
   id: ID!
   dealer: ChinchiroGameParticipant!
+  nextRoller: ChinchiroGameParticipant
   status: ChinchiroGameTurnStatus!
   turnNumber: Int!
   rolls: [ChinchiroGameTurnParticipantRoll!]!
@@ -253,17 +254,8 @@ type Mutation {
   registerChinchiroGame(
     input: NewChinchiroGame!
   ): RegisterChinchiroGamePayload! @isAuthenticated
-  registerChinchiroGameParticipant(
-    input: NewChinchiroGameParticipant!
-  ): RegisterChinchiroGameParticipantPayload! @isAuthenticated
-  deleteChinchiroGameParticipant(
-    input: DeleteChinchiroGameParticipant!
-  ): DeleteChinchiroGameParticipantPayload! @isAuthenticated
 
   # game turn
-  registerChinchiroGameTurn(
-    input: NewChinchiroGameTurn!
-  ): RegisterChinchiroGameTurnPayload! @isAuthenticated
   updateChinchiroGameTurnStatus(
     input: UpdateChinchiroGameTurnStatus!
   ): UpdateChinchiroGameTurnStatusPayload! @isAuthenticated
@@ -374,36 +366,7 @@ type RegisterChinchiroGamePayload {
   chinchiroGame: ChinchiroGame!
 }
 
-input NewChinchiroGameParticipant {
-  gameId: ID!
-}
-
-type RegisterChinchiroGameParticipantPayload {
-  chinchiroGameParticipant: ChinchiroGameParticipant!
-}
-
-type UpdateChinchiroGameParticipantPayload {
-  ok: Boolean!
-}
-
-input DeleteChinchiroGameParticipant {
-  gameId: ID!
-  participantId: ID!
-}
-
-type DeleteChinchiroGameParticipantPayload {
-  ok: Boolean!
-}
-
 # game turn
-
-input NewChinchiroGameTurn {
-  gameId: ID!
-}
-
-type RegisterChinchiroGameTurnPayload {
-  chinchiroGameTurn: ChinchiroGameTurn!
-}
 
 input UpdateChinchiroGameTurnStatus {
   turnId: ID!

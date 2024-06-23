@@ -1,8 +1,8 @@
 package db
 
 import (
-	model "chat-role-play/domain/model"
 	"time"
+	model "wolfort-games/domain/model"
 )
 
 type Player struct {
