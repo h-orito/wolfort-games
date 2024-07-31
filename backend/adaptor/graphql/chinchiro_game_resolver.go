@@ -62,6 +62,9 @@ func (r *chinchiroGameTurnResolver) dealer(ctx context.Context, obj *gqlmodel.Ch
 }
 
 func (r *chinchiroGameTurnResolver) nextRoller(ctx context.Context, obj *gqlmodel.ChinchiroGameTurn) (*gqlmodel.ChinchiroGameParticipant, error) {
+	if obj.NextRollerID == nil {
+		return nil, nil
+	}
 	thunk := r.loaders.ChinchiroGameParticipantLoader.Load(ctx, dataloader.StringKey(*obj.NextRollerID))
 	p, err := thunk()
 	if err != nil {
@@ -214,9 +217,13 @@ func (r *mutationResolver) rollChinchiroGameTurnParticipant(ctx context.Context,
 }
 
 func (r *queryResolver) chinchiroGames(_ context.Context, query gqlmodel.ChinchiroGamesQuery) ([]*gqlmodel.ChinchiroGame, error) {
-	queryIDs, err := idsToUint32s(query.Ids)
-	if err != nil {
-		return nil, err
+	var queryIDs *[]uint32
+	if query.Ids != nil {
+		qIDs, err := idsToUint32s(query.Ids)
+		if err != nil {
+			return nil, err
+		}
+		queryIDs = &qIDs
 	}
 	roomID, err := idToUint32(*query.RoomID)
 	if err != nil {
@@ -231,7 +238,7 @@ func (r *queryResolver) chinchiroGames(_ context.Context, query gqlmodel.Chinchi
 	}
 
 	games, err := r.chinchiroGameUsecase.FindChinchiroGames(model.ChinchiroGamesQuery{
-		IDs:      &queryIDs,
+		IDs:      queryIDs,
 		RoomID:   &roomID,
 		Name:     query.Name,
 		Statuses: statuses,

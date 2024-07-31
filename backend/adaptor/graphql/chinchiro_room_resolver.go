@@ -236,10 +236,14 @@ func (r *mutationResolver) leaveChinchiroRoom(ctx context.Context, input gqlmode
 }
 
 // ChinchiroRooms is the resolver for the chinchiroRooms field.
-func (r *queryResolver) chinchiroRooms(ctx context.Context, query gqlmodel.ChinchiroRoomsQuery) ([]*gqlmodel.SimpleChinchiroRoom, error) {
-	queryIDs, err := idsToUint32s(query.Ids)
-	if err != nil {
-		return nil, err
+func (r *queryResolver) chinchiroRooms(_ context.Context, query gqlmodel.ChinchiroRoomsQuery) ([]*gqlmodel.SimpleChinchiroRoom, error) {
+	var queryIDs *[]uint32
+	if query.Ids != nil {
+		ids, err := idsToUint32s(query.Ids)
+		if err != nil {
+			return nil, err
+		}
+		queryIDs = &ids
 	}
 	var statuses *[]model.ChinchiroRoomStatus
 	if query.Statuses != nil {
@@ -250,7 +254,7 @@ func (r *queryResolver) chinchiroRooms(ctx context.Context, query gqlmodel.Chinc
 	}
 
 	rooms, err := r.chinchiroRoomUsecase.FindChinchiroRooms(model.ChinchiroRoomsQuery{
-		IDs:      &queryIDs,
+		IDs:      queryIDs,
 		Name:     query.Name,
 		Statuses: statuses,
 		Paging:   query.Paging.MapToPagingQuery(),

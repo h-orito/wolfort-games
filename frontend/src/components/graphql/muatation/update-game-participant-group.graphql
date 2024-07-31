@@ -1,5 +1,0 @@
-mutation UpdateParticipantGroup($input: UpdateGameParticipantGroup!) {
-  updateGameParticipantGroup(input: $input) {
-    ok
-  }
-}

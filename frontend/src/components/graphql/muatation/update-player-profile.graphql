@@ -1,5 +1,5 @@
-mutation UpdatePlayerProfile($name: String!, $introduction: String) {
-  updatePlayerProfile(input: { name: $name, introduction: $introduction }) {
+mutation UpdatePlayerProfile($name: String!) {
+  updatePlayerProfile(input: { name: $name }) {
     ok
   }
 }

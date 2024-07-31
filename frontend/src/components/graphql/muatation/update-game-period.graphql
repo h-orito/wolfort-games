@@ -1,5 +1,0 @@
-mutation UpdatePeriod($input: UpdateGamePeriod!) {
-  updateGamePeriod(input: $input) {
-    ok
-  }
-}

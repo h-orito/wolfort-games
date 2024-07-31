@@ -197,6 +197,14 @@ type UpdateChinchiroRoomStatusPayload struct {
 	Ok bool `json:"ok"`
 }
 
+type UpdatePlayerProfile struct {
+	Name string `json:"name"`
+}
+
+type UpdatePlayerProfilePayload struct {
+	Ok bool `json:"ok"`
+}
+
 type ChinchiroCombination string
 
 const (

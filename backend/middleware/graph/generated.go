@@ -156,6 +156,7 @@ type ComplexityRoot struct {
 		UpdateChinchiroRoomParticipant   func(childComplexity int, input gqlmodel.UpdateChinchiroRoomParticipant) int
 		UpdateChinchiroRoomSettings      func(childComplexity int, input gqlmodel.UpdateChinchiroRoomSettings) int
 		UpdateChinchiroRoomStatus        func(childComplexity int, input gqlmodel.UpdateChinchiroRoomStatus) int
+		UpdatePlayerProfile              func(childComplexity int, input gqlmodel.UpdatePlayerProfile) int
 	}
 
 	Player struct {
@@ -223,6 +224,10 @@ type ComplexityRoot struct {
 	UpdateChinchiroRoomStatusPayload struct {
 		Ok func(childComplexity int) int
 	}
+
+	UpdatePlayerProfilePayload struct {
+		Ok func(childComplexity int) int
+	}
 }
 
 type ChinchiroGameResolver interface {
@@ -259,6 +264,7 @@ type ChinchiroRoomParticipantResolver interface {
 	Player(ctx context.Context, obj *gqlmodel.ChinchiroRoomParticipant) (*gqlmodel.Player, error)
 }
 type MutationResolver interface {
+	UpdatePlayerProfile(ctx context.Context, input gqlmodel.UpdatePlayerProfile) (*gqlmodel.UpdatePlayerProfilePayload, error)
 	RegisterChinchiroRoom(ctx context.Context, input gqlmodel.NewChinchiroRoom) (*gqlmodel.RegisterChinchiroRoomPayload, error)
 	RegisterChinchiroRoomMaster(ctx context.Context, input gqlmodel.NewChinchiroRoomMaster) (*gqlmodel.RegisterChinchiroRoomMasterPayload, error)
 	DeleteChinchiroRoomMaster(ctx context.Context, input gqlmodel.DeleteChinchiroRoomMaster) (*gqlmodel.DeleteChinchiroRoomMasterPayload, error)
@@ -800,6 +806,18 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Mutation.UpdateChinchiroRoomStatus(childComplexity, args["input"].(gqlmodel.UpdateChinchiroRoomStatus)), true
 
+	case "Mutation.updatePlayerProfile":
+		if e.complexity.Mutation.UpdatePlayerProfile == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_updatePlayerProfile_args(context.TODO(), rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.UpdatePlayerProfile(childComplexity, args["input"].(gqlmodel.UpdatePlayerProfile)), true
+
 	case "Player.authorityCodes":
 		if e.complexity.Player.AuthorityCodes == nil {
 			break
@@ -1070,6 +1088,13 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.UpdateChinchiroRoomStatusPayload.Ok(childComplexity), true
 
+	case "UpdatePlayerProfilePayload.ok":
+		if e.complexity.UpdatePlayerProfilePayload.Ok == nil {
+			break
+		}
+
+		return e.complexity.UpdatePlayerProfilePayload.Ok(childComplexity), true
+
 	}
 	return 0, false
 }
@@ -1098,6 +1123,7 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 		ec.unmarshalInputUpdateChinchiroRoomParticipant,
 		ec.unmarshalInputUpdateChinchiroRoomSettings,
 		ec.unmarshalInputUpdateChinchiroRoomStatus,
+		ec.unmarshalInputUpdatePlayerProfile,
 	)
 	first := true
 
@@ -1416,6 +1442,10 @@ input ChinchiroGameTurnParticipantResultsQuery {
 ####################################################
 
 type Mutation {
+  ## player
+  updatePlayerProfile(input: UpdatePlayerProfile!): UpdatePlayerProfilePayload!
+    @isAuthenticated
+
   ## chinchiro
   # room
   registerChinchiroRoom(
@@ -1464,6 +1494,16 @@ type Mutation {
   rollChinchiroGameTurnParticipant(
     input: RollChinchiroGameTurnParticipant!
   ): RollChinchiroGameTurnParticipantPayload! @isAuthenticated
+}
+
+## player
+
+input UpdatePlayerProfile {
+  name: String!
+}
+
+type UpdatePlayerProfilePayload {
+  ok: Boolean!
 }
 
 ## chinchiro
@@ -1789,6 +1829,21 @@ func (ec *executionContext) field_Mutation_updateChinchiroRoomStatus_args(ctx co
 	if tmp, ok := rawArgs["input"]; ok {
 		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("input"))
 		arg0, err = ec.unmarshalNUpdateChinchiroRoomStatus2wolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐUpdateChinchiroRoomStatus(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["input"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_updatePlayerProfile_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
+	var err error
+	args := map[string]interface{}{}
+	var arg0 gqlmodel.UpdatePlayerProfile
+	if tmp, ok := rawArgs["input"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("input"))
+		arg0, err = ec.unmarshalNUpdatePlayerProfile2wolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐUpdatePlayerProfile(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -4323,6 +4378,85 @@ func (ec *executionContext) fieldContext_LeaveChinchiroRoomPayload_ok(ctx contex
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type Boolean does not have child fields")
 		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_updatePlayerProfile(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Mutation_updatePlayerProfile(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		directive0 := func(rctx context.Context) (interface{}, error) {
+			ctx = rctx // use context from middleware stack in children
+			return ec.resolvers.Mutation().UpdatePlayerProfile(rctx, fc.Args["input"].(gqlmodel.UpdatePlayerProfile))
+		}
+		directive1 := func(ctx context.Context) (interface{}, error) {
+			if ec.directives.IsAuthenticated == nil {
+				return nil, errors.New("directive isAuthenticated is not implemented")
+			}
+			return ec.directives.IsAuthenticated(ctx, nil, directive0)
+		}
+
+		tmp, err := directive1(rctx)
+		if err != nil {
+			return nil, graphql.ErrorOnPath(ctx, err)
+		}
+		if tmp == nil {
+			return nil, nil
+		}
+		if data, ok := tmp.(*gqlmodel.UpdatePlayerProfilePayload); ok {
+			return data, nil
+		}
+		return nil, fmt.Errorf(`unexpected type %T from directive, should be *wolfort-games/middleware/graph/gqlmodel.UpdatePlayerProfilePayload`, tmp)
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(*gqlmodel.UpdatePlayerProfilePayload)
+	fc.Result = res
+	return ec.marshalNUpdatePlayerProfilePayload2ᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐUpdatePlayerProfilePayload(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Mutation_updatePlayerProfile(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "ok":
+				return ec.fieldContext_UpdatePlayerProfilePayload_ok(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type UpdatePlayerProfilePayload", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_updatePlayerProfile_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
 	}
 	return fc, nil
 }
@@ -7118,6 +7252,50 @@ func (ec *executionContext) fieldContext_UpdateChinchiroRoomStatusPayload_ok(ctx
 	return fc, nil
 }
 
+func (ec *executionContext) _UpdatePlayerProfilePayload_ok(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.UpdatePlayerProfilePayload) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_UpdatePlayerProfilePayload_ok(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Ok, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(bool)
+	fc.Result = res
+	return ec.marshalNBoolean2bool(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_UpdatePlayerProfilePayload_ok(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "UpdatePlayerProfilePayload",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Boolean does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) ___Directive_name(ctx context.Context, field graphql.CollectedField, obj *introspection.Directive) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext___Directive_name(ctx, field)
 	if err != nil {
@@ -9741,6 +9919,35 @@ func (ec *executionContext) unmarshalInputUpdateChinchiroRoomStatus(ctx context.
 	return it, nil
 }
 
+func (ec *executionContext) unmarshalInputUpdatePlayerProfile(ctx context.Context, obj interface{}) (gqlmodel.UpdatePlayerProfile, error) {
+	var it gqlmodel.UpdatePlayerProfile
+	asMap := map[string]interface{}{}
+	for k, v := range obj.(map[string]interface{}) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"name"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "name":
+			var err error
+
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("name"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Name = data
+		}
+	}
+
+	return it, nil
+}
+
 // endregion **************************** input.gotpl *****************************
 
 // region    ************************** interface.gotpl ***************************
@@ -10952,6 +11159,13 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 		switch field.Name {
 		case "__typename":
 			out.Values[i] = graphql.MarshalString("Mutation")
+		case "updatePlayerProfile":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_updatePlayerProfile(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		case "registerChinchiroRoom":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_registerChinchiroRoom(ctx, field)
@@ -11814,6 +12028,45 @@ func (ec *executionContext) _UpdateChinchiroRoomStatusPayload(ctx context.Contex
 			out.Values[i] = graphql.MarshalString("UpdateChinchiroRoomStatusPayload")
 		case "ok":
 			out.Values[i] = ec._UpdateChinchiroRoomStatusPayload_ok(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var updatePlayerProfilePayloadImplementors = []string{"UpdatePlayerProfilePayload"}
+
+func (ec *executionContext) _UpdatePlayerProfilePayload(ctx context.Context, sel ast.SelectionSet, obj *gqlmodel.UpdatePlayerProfilePayload) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, updatePlayerProfilePayloadImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("UpdatePlayerProfilePayload")
+		case "ok":
+			out.Values[i] = ec._UpdatePlayerProfilePayload_ok(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -13090,6 +13343,25 @@ func (ec *executionContext) marshalNUpdateChinchiroRoomStatusPayload2ᚖwolfort�
 		return graphql.Null
 	}
 	return ec._UpdateChinchiroRoomStatusPayload(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalNUpdatePlayerProfile2wolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐUpdatePlayerProfile(ctx context.Context, v interface{}) (gqlmodel.UpdatePlayerProfile, error) {
+	res, err := ec.unmarshalInputUpdatePlayerProfile(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNUpdatePlayerProfilePayload2wolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐUpdatePlayerProfilePayload(ctx context.Context, sel ast.SelectionSet, v gqlmodel.UpdatePlayerProfilePayload) graphql.Marshaler {
+	return ec._UpdatePlayerProfilePayload(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNUpdatePlayerProfilePayload2ᚖwolfortᚑgamesᚋmiddlewareᚋgraphᚋgqlmodelᚐUpdatePlayerProfilePayload(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.UpdatePlayerProfilePayload) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._UpdatePlayerProfilePayload(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalN__Directive2githubᚗcomᚋ99designsᚋgqlgenᚋgraphqlᚋintrospectionᚐDirective(ctx context.Context, sel ast.SelectionSet, v introspection.Directive) graphql.Marshaler {

@@ -1,0 +1,29 @@
+query QChinchiroRoom($roomId: ID!) {
+  chinchiroRoom(roomId: $roomId) {
+    id
+    name
+    status
+    roomMasters {
+      id
+      player {
+        id
+        name
+      }
+    }
+    participants {
+      id
+      name
+      player {
+        id
+        name
+      }
+    }
+    games {
+      id
+      status
+    }
+    settings {
+      dummy
+    }
+  }
+}

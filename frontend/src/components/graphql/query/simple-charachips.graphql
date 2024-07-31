@@ -1,9 +1,0 @@
-query QCharachips($query: CharachipsQuery!) {
-  charachips(query: $query) {
-    id
-    name
-    designer {
-      name
-    }
-  }
-}

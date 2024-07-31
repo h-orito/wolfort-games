@@ -1,5 +1,0 @@
-mutation Leave($input: DeleteGameParticipant!) {
-  deleteGameParticipant(input: $input) {
-    ok
-  }
-}

@@ -4,8 +4,7 @@ type Props = {
   header: string
   children: React.ReactNode
   isOpen?: boolean
-  isFixed?: boolean
-  toggleFixed?: (e: any) => void
+  detailsClassName?: string
 }
 
 export interface PanelRefHandle {
@@ -13,13 +12,7 @@ export interface PanelRefHandle {
 }
 
 const Panel = forwardRef<PanelRefHandle, Props>((props: Props, ref: any) => {
-  const {
-    header,
-    children,
-    isOpen: initialOpen = true,
-    isFixed = false,
-    toggleFixed
-  } = props
+  const { header, children, isOpen: initialOpen = true } = props
   const [isOpen, setIsOpen] = useState(initialOpen)
 
   const detailsRef = useRef<HTMLDetailsElement>(null)
@@ -45,18 +38,14 @@ const Panel = forwardRef<PanelRefHandle, Props>((props: Props, ref: any) => {
             className='secondary-background cursor-pointer list-none rounded-t'
           >
             <div className='base-border flex border-b px-3 py-2'>
-              <div className='flex-1 text-lg'>{header}</div>
-              {toggleFixed && (
-                <button
-                  className='base-link mr-auto text-xs'
-                  onClick={toggleFixed}
-                >
-                  {isFixed ? '固定解除' : '固定'}
-                </button>
-              )}
+              <div className='text-md flex-1'>{header}</div>
             </div>
           </summary>
-          <div className='primary-text details-content w-full p-4'>
+          <div
+            className={`primary-text details-content w-full ${
+              props.detailsClassName ?? 'p-4'
+            }`}
+          >
             {children}
           </div>
         </details>

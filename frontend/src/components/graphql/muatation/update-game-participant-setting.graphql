@@ -1,5 +1,0 @@
-mutation UpdateGameParticipantSetting($input: UpdateGameParticipantSetting!) {
-  updateGameParticipantSetting(input: $input) {
-    ok
-  }
-}

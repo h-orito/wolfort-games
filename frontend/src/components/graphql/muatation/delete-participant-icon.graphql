@@ -1,5 +1,0 @@
-mutation DeleteParticipantIcon($input: DeleteGameParticipantIcon!) {
-  deleteGameParticipantIcon(input: $input) {
-    ok
-  }
-}

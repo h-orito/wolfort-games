@@ -1,5 +1,0 @@
-mutation UpdateIcon($input: UpdateGameParticipantIcon!) {
-  updateGameParticipantIcon(input: $input) {
-    ok
-  }
-}

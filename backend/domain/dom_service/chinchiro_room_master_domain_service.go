@@ -29,6 +29,7 @@ func (ds *chinchiroRoomMasterDomainService) IsRoomMaster(
 	}) {
 		return true
 	}
+	// TODO: roomMasterIDとplayerIDを比較してしまっている
 	return array.Any(room.RoomMasterIDs, func(id uint32) bool {
 		return id == player.ID
 	})

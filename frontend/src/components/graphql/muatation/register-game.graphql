@@ -1,7 +1,0 @@
-mutation RegisterGame($input: NewGame!) {
-  registerGame(input: $input) {
-    game {
-      id
-    }
-  }
-}

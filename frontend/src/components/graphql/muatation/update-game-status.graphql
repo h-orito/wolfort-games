@@ -1,5 +1,0 @@
-mutation UpdateStatus($input: UpdateGameStatus!) {
-  updateGameStatus(input: $input) {
-    ok
-  }
-}

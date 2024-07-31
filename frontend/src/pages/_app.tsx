@@ -21,7 +21,7 @@ export default function App({ Component, pageProps }: AppPropsWithLayout) {
   return (
     <AuthProvider>
       <GraphqlProvider>
-        <CookiesProvider defaultSetOptions={{ path: '/chat-role-play/' }}>
+        <CookiesProvider defaultSetOptions={{ path: '/games/' }}>
           <JotaiProvider>
             {getLayout(
               <RootLayout>

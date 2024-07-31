@@ -1,5 +1,0 @@
-mutation Unfavorite($input: DeleteMessageFavorite!) {
-  deleteMessageFavorite(input: $input) {
-    ok
-  }
-}

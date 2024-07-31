@@ -1,5 +1,0 @@
-mutation FavoriteDirect($input: NewDirectMessageFavorite!) {
-  registerDirectMessageFavorite(input: $input) {
-    ok
-  }
-}

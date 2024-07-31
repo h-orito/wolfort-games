@@ -219,6 +219,10 @@ input ChinchiroGameTurnParticipantResultsQuery {
 ####################################################
 
 type Mutation {
+  ## player
+  updatePlayerProfile(input: UpdatePlayerProfile!): UpdatePlayerProfilePayload!
+    @isAuthenticated
+
   ## chinchiro
   # room
   registerChinchiroRoom(
@@ -267,6 +271,16 @@ type Mutation {
   rollChinchiroGameTurnParticipant(
     input: RollChinchiroGameTurnParticipant!
   ): RollChinchiroGameTurnParticipantPayload! @isAuthenticated
+}
+
+## player
+
+input UpdatePlayerProfile {
+  name: String!
+}
+
+type UpdatePlayerProfilePayload {
+  ok: Boolean!
 }
 
 ## chinchiro

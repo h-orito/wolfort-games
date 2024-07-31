@@ -1,0 +1,5 @@
+mutation MleaveChinchiroRoom($input: LeaveChinchiroRoom!) {
+  leaveChinchiroRoom(input: $input) {
+    ok
+  }
+}

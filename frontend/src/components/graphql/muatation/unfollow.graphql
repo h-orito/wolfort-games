@@ -1,5 +1,0 @@
-mutation Unfollow($input: DeleteGameParticipantFollow!) {
-  deleteGameParticipantFollow(input: $input) {
-    ok
-  }
-}

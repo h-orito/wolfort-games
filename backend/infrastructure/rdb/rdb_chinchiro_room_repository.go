@@ -105,8 +105,10 @@ func findChinchiroRooms(db *gorm.DB, query model.ChinchiroRoomsQuery) (rooms []m
 	if len(ids) == 0 {
 		return nil, nil
 	}
+	isExcludeGone := true
 	pts, err := findRdbChinchiroRoomParticipants(db, model.ChinchiroRoomParticipantsQuery{
-		RoomIDs: &ids,
+		RoomIDs:       &ids,
+		IsExcludeGone: &isExcludeGone,
 	})
 	if err != nil {
 		return nil, err
@@ -142,8 +144,10 @@ func findChinchiroRoom(db *gorm.DB, ID uint32) (room *model.ChinchiroRoom, err e
 	if err != nil {
 		return nil, err
 	}
+	isExcludeGone := true
 	participants, err := findRdbChinchiroRoomParticipants(db, model.ChinchiroRoomParticipantsQuery{
-		RoomIDs: &[]uint32{ID},
+		RoomIDs:       &[]uint32{ID},
+		IsExcludeGone: &isExcludeGone,
 	})
 	if err != nil {
 		return nil, err

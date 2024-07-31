@@ -1,0 +1,7 @@
+mutation registerChinchiroGame($input: NewChinchiroGame!) {
+  registerChinchiroGame(input: $input) {
+    chinchiroGame {
+      id
+    }
+  }
+}

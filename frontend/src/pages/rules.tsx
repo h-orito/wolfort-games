@@ -1,6 +1,6 @@
 import Modal from '@/components/modal/modal'
-import Policy from '@/components/pages/index/policy'
-import Term from '@/components/pages/index/term'
+import Policy from '@/components/layout/footer/policy'
+import Term from '@/components/layout/footer/term'
 import PageHeader from '@/components/pages/page-header'
 import Head from 'next/head'
 import { useState } from 'react'

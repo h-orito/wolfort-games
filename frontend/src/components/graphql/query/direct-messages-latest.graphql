@@ -1,3 +1,0 @@
-query DirectMessagesLatest($gameId: ID!, $query: DirectMessagesQuery!) {
-  directMessagesLatestUnixTimeMilli(gameId: $gameId, query: $query)
-}

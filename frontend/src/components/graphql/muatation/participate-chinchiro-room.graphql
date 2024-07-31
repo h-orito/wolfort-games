@@ -1,0 +1,7 @@
+mutation participateChinchiroRoom($input: NewChinchiroRoomParticipant!) {
+  registerChinchiroRoomParticipant(input: $input) {
+    chinchiroRoomParticipant {
+      id
+    }
+  }
+}

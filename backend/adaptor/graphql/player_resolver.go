@@ -31,7 +31,7 @@ func (r *chinchiroRoomParticipantResolver) player(ctx context.Context, obj *gqlm
 	return MapToPlayer(player, []model.PlayerAuthority{}), nil
 }
 
-func (r *queryResolver) players(ctx context.Context, query gqlmodel.PlayersQuery) ([]*gqlmodel.Player, error) {
+func (r *queryResolver) players(_ context.Context, query gqlmodel.PlayersQuery) ([]*gqlmodel.Player, error) {
 	var intids *[]uint32
 	var err error
 	if query.Ids != nil {
@@ -69,7 +69,7 @@ func (r *queryResolver) players(ctx context.Context, query gqlmodel.PlayersQuery
 	}), nil
 }
 
-func (r *queryResolver) player(ctx context.Context, id string) (*gqlmodel.Player, error) {
+func (r *queryResolver) player(_ context.Context, id string) (*gqlmodel.Player, error) {
 	playerID, err := idToUint32(id)
 	if err != nil {
 		return nil, err
@@ -99,4 +99,17 @@ func (r *queryResolver) myPlayer(ctx context.Context) (*gqlmodel.Player, error) 
 		return nil, err
 	}
 	return MapToPlayer(p, authorities), nil
+}
+
+func (r *mutationResolver) updatePlayerProfile(ctx context.Context, input gqlmodel.UpdatePlayerProfile) (*gqlmodel.UpdatePlayerProfilePayload, error) {
+	user := auth.GetUser(ctx)
+	if user == nil {
+		return nil, fmt.Errorf("user not found")
+	}
+	r.playerUsecase.UpdatePlayerProfile(ctx, *user, model.Player{
+		Name: input.Name,
+	})
+	return &gqlmodel.UpdatePlayerProfilePayload{
+		Ok: true,
+	}, nil
 }

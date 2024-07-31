@@ -90,6 +90,11 @@ func (r *chinchiroRoomParticipantResolver) Player(ctx context.Context, obj *gqlm
 	return r.player(ctx, obj)
 }
 
+// UpdatePlayerProfile is the resolver for the updatePlayerProfile field.
+func (r *mutationResolver) UpdatePlayerProfile(ctx context.Context, input gqlmodel.UpdatePlayerProfile) (*gqlmodel.UpdatePlayerProfilePayload, error) {
+	return r.updatePlayerProfile(ctx, input)
+}
+
 // RegisterChinchiroRoom is the resolver for the registerChinchiroRoom field.
 func (r *mutationResolver) RegisterChinchiroRoom(ctx context.Context, input gqlmodel.NewChinchiroRoom) (*gqlmodel.RegisterChinchiroRoomPayload, error) {
 	return r.registerChinchiroRoom(ctx, input)

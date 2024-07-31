@@ -65,6 +65,15 @@ func (u *chinchiroRoomUsecase) RegisterChinchiroRoom(ctx context.Context, user m
 		if err != nil {
 			return nil, err
 		}
+		// room participant
+		_, err = u.chinchiroRoomService.RegisterChinchiroRoomParticipant(ctx, rm.ID, model.ChinchiroRoomParticipant{
+			Name:     player.Name,
+			PlayerID: player.ID,
+		})
+		if err != nil {
+			return nil, err
+		}
+
 		return rm, nil
 	})
 	if err != nil {

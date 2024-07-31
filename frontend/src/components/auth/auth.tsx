@@ -35,7 +35,7 @@ export const LogoutButton = ({ className }: LogoutButtonProps) => {
   const { logout } = useAuth0()
   const doLogout = (e: any) => {
     logout({
-      logoutParams: { returnTo: window.location.origin + '/wolfort-games' }
+      logoutParams: { returnTo: window.location.origin + '/games' }
     })
   }
 

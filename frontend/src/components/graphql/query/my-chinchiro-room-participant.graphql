@@ -1,0 +1,10 @@
+query MyChinchiroRoomParticipant($roomId: ID!) {
+  myChinchiroRoomParticipant(roomId: $roomId) {
+    id
+    name
+    player {
+      id
+      name
+    }
+  }
+}

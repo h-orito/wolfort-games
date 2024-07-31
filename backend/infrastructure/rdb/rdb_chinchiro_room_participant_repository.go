@@ -126,7 +126,7 @@ func findRdbChinchiroRoomParticipants(db *gorm.DB, query model.ChinchiroRoomPart
 
 func findRdbChinchiroRoomParticipant(db *gorm.DB, query model.ChinchiroRoomParticipantQuery) (_ *ChinchiroRoomParticipant, err error) {
 	var rdbRoomParticipant ChinchiroRoomParticipant
-	result := db.Model(&ChinchiroRoomParticipant{})
+	result := db.Model(&ChinchiroRoomParticipant{}).Where("is_gone = ?", false)
 	if query.ID != nil {
 		result = result.Where("id = ?", *query.ID)
 	}
